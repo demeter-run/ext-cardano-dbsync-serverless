@@ -4,12 +4,12 @@ This project is a Kubernetes custom controller to create users on dbsync's Postg
 
 ## Environment
 
-| Key            | Value        |
-| -------------- | ------------ |
-| ADDR           | 0.0.0.0:5000 |
-| DB_URL_MAINNET |              |
-| DB_URL_PREPROD |              |
-| DB_URL_PREVIEW |              |
+| Key            | Value                                 |
+| -------------- | ------------------------------------- |
+| ADDR           | 0.0.0.0:5000                          |
+| DB_URL_MAINNET | postgres://user:password@host:post/db |
+| DB_URL_PREPROD | postgres://user:password@host:post/db |
+| DB_URL_PREVIEW | postgres://user:password@host:post/db |
 
 ## Commands
 
