@@ -3,7 +3,7 @@ use tokio_postgres::{Client, NoTls};
 use crate::Error;
 
 pub async fn connect(url: &str) -> Result<Client, Error> {
-    let (client, connection) = tokio_postgres::connect(&url, NoTls).await?;
+    let (client, connection) = tokio_postgres::connect(url, NoTls).await?;
 
     tokio::spawn(async move {
         if let Err(e) = connection.await {
@@ -75,7 +75,7 @@ pub async fn user_enable(client: &mut Client, username: &str, password: &str) ->
 pub async fn user_already_exists(client: &mut Client, username: &str) -> Result<bool, Error> {
     let query = "select rolname from pg_roles where rolname = $1;";
 
-    let user_stmt = client.prepare(&query).await?;
+    let user_stmt = client.prepare(query).await?;
     let result = client.query_opt(&user_stmt, &[&username]).await?;
 
     Ok(result.is_some())
