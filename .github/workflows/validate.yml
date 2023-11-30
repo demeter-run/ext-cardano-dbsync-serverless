@@ -27,6 +27,10 @@ jobs:
       - name: Build Controller
         run: docker build -t ext-cardano-dbsync:latest .
 
+      - name: Load Image into Kind
+        run: |
+          kind load docker-image ext-cardano-dbsync:latest
+
       - name: Apply manifests
         run: |
           kubectl apply -f test/manifest.yaml
@@ -35,4 +39,3 @@ jobs:
       - name: Validate if CRD is working
         run: |
           counter=0; while ((counter++ < 5)); do kubectl get pod -n project; sleep 2; done;
-          
