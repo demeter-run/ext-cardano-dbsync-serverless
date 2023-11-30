@@ -11,6 +11,16 @@ on:
 jobs:
   run-controller:
     runs-on: ubuntu-latest
+
+    services:
+      postgresql:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -24,6 +34,12 @@ jobs:
       - name: Apply CRD
         run: kubectl apply -f crd.yaml
 
+      - name: Build Controller
+        run: docker build -t controller .
+
+      - name: Apply manifests
+        run: kubectl apply -f test/manifest.yaml
+
       - name: Validate if CRD is working
         run: |
-          kubectl get customresourcedefinitions.apiextensions.k8s.io -o wide
+          kubectl get pod -n project
