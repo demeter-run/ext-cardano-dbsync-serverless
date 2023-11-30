@@ -26,7 +26,7 @@ async fn main() -> io::Result<()> {
     dotenv().ok();
 
     let state = State::default();
-    let config = Config::new();
+    let config = Config::default();
 
     let controller = controller::run(state.clone(), config);
 

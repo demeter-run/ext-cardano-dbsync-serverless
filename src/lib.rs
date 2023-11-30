@@ -46,6 +46,11 @@ impl Config {
         }
     }
 }
+impl Default for Config {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 pub mod controller;
 pub mod postgres;
