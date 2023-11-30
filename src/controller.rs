@@ -1,6 +1,6 @@
 use crate::{
     postgres::{self, user_already_exists, user_create, user_disable, user_enable},
-    Error, Metrics, Result,
+    Config, Error, Metrics, Result,
 };
 use futures::StreamExt;
 use kube::{
@@ -8,7 +8,7 @@ use kube::{
     runtime::{
         controller::Action,
         finalizer::{finalizer, Event},
-        watcher::Config,
+        watcher::Config as WatcherConfig,
         Controller,
     },
     Api, Client, CustomResource, ResourceExt,
@@ -25,18 +25,14 @@ pub static DB_SYNC_PORT_FINALIZER: &str = "dbsyncports.demeter.run";
 struct Context {
     pub client: Client,
     pub metrics: Metrics,
-    pub db_url_mainnet: String,
-    pub db_url_preprod: String,
-    pub db_url_preview: String,
+    pub config: Config,
 }
 impl Context {
-    pub fn new(client: Client, metrics: Metrics) -> Self {
+    pub fn new(client: Client, metrics: Metrics, config: Config) -> Self {
         Self {
             client,
             metrics,
-            db_url_mainnet: std::env::var("DB_URL_MAINNET").expect("DB_URL_MAINNET must be set"),
-            db_url_preprod: std::env::var("DB_URL_PREPROD").expect("DB_URL_PREPROD must be set"),
-            db_url_preview: std::env::var("DB_URL_PREVIEW").expect("DB_URL_PREVIEW must be set"),
+            config,
         }
     }
 }
@@ -132,9 +128,9 @@ impl DbSyncPort {
 
 async fn reconcile(crd: Arc<DbSyncPort>, ctx: Arc<Context>) -> Result<Action> {
     let url = match crd.spec.network {
-        Network::Mainnet => &ctx.db_url_mainnet,
-        Network::Preprod => &ctx.db_url_preprod,
-        Network::Preview => &ctx.db_url_preview,
+        Network::Mainnet => &ctx.config.db_url_mainnet,
+        Network::Preprod => &ctx.config.db_url_preprod,
+        Network::Preview => &ctx.config.db_url_preview,
     };
 
     let ns = crd.namespace().unwrap();
@@ -158,13 +154,13 @@ fn error_policy(crd: Arc<DbSyncPort>, err: &Error, ctx: Arc<Context>) -> Action 
     Action::requeue(Duration::from_secs(5))
 }
 
-pub async fn run(state: State) -> Result<(), Error> {
+pub async fn run(state: State, config: Config) -> Result<(), Error> {
     let client = Client::try_default().await?;
     let crds = Api::<DbSyncPort>::all(client.clone());
     let metrics = Metrics::default().register(&state.registry).unwrap();
-    let ctx = Context::new(client, metrics);
+    let ctx = Context::new(client, metrics, config);
 
-    Controller::new(crds, Config::default().any_semantic())
+    Controller::new(crds, WatcherConfig::default().any_semantic())
         .shutdown_on_signal()
         .run(reconcile, error_policy, Arc::new(ctx))
         .for_each(|_| futures::future::ready(()))

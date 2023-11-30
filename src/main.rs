@@ -3,7 +3,7 @@ use std::io;
 use actix_web::{
     get, middleware, web::Data, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-use controller::State;
+use controller::{Config, State};
 use dotenv::dotenv;
 use prometheus::{Encoder, TextEncoder};
 
@@ -26,8 +26,9 @@ async fn main() -> io::Result<()> {
     dotenv().ok();
 
     let state = State::default();
+    let config = Config::new();
 
-    let controller = controller::run(state.clone());
+    let controller = controller::run(state.clone(), config);
 
     let addr = std::env::var("ADDR").unwrap_or("0.0.0.0:8080".into());
 

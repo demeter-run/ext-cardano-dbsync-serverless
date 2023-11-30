@@ -32,6 +32,21 @@ impl From<kube::Error> for Error {
     }
 }
 
+pub struct Config {
+    pub db_url_mainnet: String,
+    pub db_url_preprod: String,
+    pub db_url_preview: String,
+}
+impl Config {
+    pub fn new() -> Self {
+        Self {
+            db_url_mainnet: std::env::var("DB_URL_MAINNET").expect("DB_URL_MAINNET must be set"),
+            db_url_preprod: std::env::var("DB_URL_PREPROD").expect("DB_URL_PREPROD must be set"),
+            db_url_preview: std::env::var("DB_URL_PREVIEW").expect("DB_URL_PREVIEW must be set"),
+        }
+    }
+}
+
 pub mod controller;
 pub mod postgres;
 pub use crate::controller::*;
