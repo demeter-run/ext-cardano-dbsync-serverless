@@ -25,7 +25,7 @@ jobs:
         run: kubectl apply -f crd.yaml
 
       - name: Build Controller
-        run: docker build -t controller .
+        run: docker build -t ext-cardano-dbsync:latest .
 
       - name: Apply manifests
         run: |
