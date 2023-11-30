@@ -18,8 +18,12 @@ jobs:
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1.5.0
 
-      - name: Validate if Kind is working
+      - name: Generate CRD
+        run: cargo run --bin=crdgen >> crd.yaml
+
+      - name: Apply CRD
+        run: kubectl apply -f crd.yaml
+
+      - name: Validate if CRD is working
         run: |
-          kubectl get nodes -o wide
-          kubectl get pods --all-namespaces -o wide
-          kubectl get services --all-namespaces -o wide
+          kubectl get customresourcedefinitions.apiextensions.k8s.io -o wide
