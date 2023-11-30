@@ -11,7 +11,6 @@ on:
 jobs:
   run-controller:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -29,8 +28,11 @@ jobs:
         run: docker build -t controller .
 
       - name: Apply manifests
-        run: kubectl apply -f test/manifest.yaml
+        run: |
+          kubectl apply -f test/manifest.yaml
+          kubectl apply -f test/dbsyncport.yaml
 
       - name: Validate if CRD is working
         run: |
-          kubectl get pod -n project
+          counter=0; while ((counter++ < 5)); do kubectl get pod -n project; sleep 2; done;
+          
