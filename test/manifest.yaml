@@ -45,11 +45,14 @@ metadata:
   labels:
     app: postgres
 spec:
-  ports:
-    - port: 5432
   selector:
     app: postgres
-  clusterIP: None
+  type:  NodePort
+  ports:
+  - name:  postgres
+    port:  5432
+    targetPort:  5432
+    nodePort: 30000
 ---
 # Run controller
 apiVersion: apps/v1
