@@ -45,14 +45,11 @@ metadata:
   labels:
     app: postgres
 spec:
+  ports:
+    - port: 5432
   selector:
     app: postgres
-  type: NodePort
-  ports:
-    - name: postgres
-      port: 5432
-      targetPort: 5432
-      nodePort: 30000
+  clusterIP: None
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -157,6 +154,7 @@ spec:
       labels:
         app: controller
     spec:
+      serviceAccountName: controller
       containers:
         - name: controller
           image: ext-cardano-dbsync:1.0
@@ -166,11 +164,13 @@ spec:
             - name: ADDR
               value: "0.0.0.0:80"
             - name: DB_URL_MAINNET
-              value: "postgres://user:password@app.postgres.svc.cluster.local:5432/postgres?sslmode=disable"
+              value: "postgres://user:password@app.project.svc.cluster.local:5432/postgres?sslmode=disable"
             - name: DB_URL_PREPROD
-              value: "postgres://user:password@app.postgres.svc.cluster.local:5432/postgres?sslmode=disable"
+              value: "postgres://user:password@app.project.svc.cluster.local:5432/postgres?sslmode=disable"
             - name: DB_URL_PREVIEW
-              value: "postgres://user:password@app.postgres.svc.cluster.local:5432/postgres?sslmode=disable"
+              value: "postgres://user:password@app.project.svc.cluster.local:5432/postgres?sslmode=disable"
+            - name: RUST_LOG
+              value: info,kube=debug,controller=debug
 ---
 apiVersion: v1
 kind: Service
