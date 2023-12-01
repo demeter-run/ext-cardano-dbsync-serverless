@@ -47,12 +47,98 @@ metadata:
 spec:
   selector:
     app: postgres
-  type:  NodePort
+  type: NodePort
   ports:
-  - name:  postgres
-    port:  5432
-    targetPort:  5432
-    nodePort: 30000
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      nodePort: 30000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: controller
+  namespace: project
+  labels:
+    app: controller
+    app.kubernetes.io/name: controller
+    app.kubernetes.io/version: "0.12.11"
+spec:
+  podSelector:
+    matchLabels:
+      app: controller
+  policyTypes:
+    - Ingress
+    - Egress
+  egress:
+    # Kubernetes apiserver access
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 443
+          protocol: TCP
+        - port: 6443
+          protocol: TCP
+    # DNS egress
+    - to:
+        - podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+  ingress:
+    # prometheus metrics scraping support
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+          podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - port: http
+          protocol: TCP
+---
+# Scoped service account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: controller
+  labels:
+    app: controller
+    app.kubernetes.io/name: controller
+    app.kubernetes.io/version: "0.12.11"
+  namespace: project
+automountServiceAccountToken: true
+---
+# Access for the service account
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: controller
+rules:
+  - apiGroups: ["demeter.run"]
+    resources: ["dbsyncports", "dbsyncports/status", "dbsyncports/finalizers"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["create"]
+---
+# Binding the role to the account
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: controller
+subjects:
+  - kind: ServiceAccount
+    namespace: project
+    name: controller
+roleRef:
+  kind: ClusterRole
+  name: controller
+  apiGroup: rbac.authorization.k8s.io
 ---
 # Run controller
 apiVersion: apps/v1
