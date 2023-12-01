@@ -27,12 +27,12 @@ jobs:
         run: kubectl apply -f crd.yaml
 
       - name: Build Controller
-        run: docker build -t ext-cardano-dbsync:latest .
+        run: docker build -t ext-cardano-dbsync:1.0 .
 
       - name: Load Image into Kind
         run: |
           docker images
-          kind load docker-image ext-cardano-dbsync:latest --name k8scluster
+          kind load docker-image ext-cardano-dbsync:1.0 --name k8scluster
 
       - name: Apply manifests
         run: |

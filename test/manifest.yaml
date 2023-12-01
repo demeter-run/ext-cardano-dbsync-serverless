@@ -70,7 +70,7 @@ spec:
     spec:
       containers:
         - name: controller
-          image: ext-cardano-dbsync:latest
+          image: ext-cardano-dbsync:1.0
           ports:
             - containerPort: 80
           env:
