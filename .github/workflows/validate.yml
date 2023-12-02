@@ -41,14 +41,8 @@ jobs:
       - name: Apply manifests
         run: kubectl apply -f test/dbsyncport.yaml
 
-      - name: Validate if CRD is working
+      - name: Validate if controller was executed
         run: |
-          # kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Username:  \K\S+'
-          # kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Password:  \K\S+'
-          counter=0; while ((counter++ < 6)); do kubectl logs -n project "$(kubectl get pods -n project | grep -oP 'controller-\w+-\w+')"; sleep 2; done;
-          kubectl describe dbsyncports.demeter.run --namespace project useraccess
-
-      # - name: Collect controller status
-      #   run: |
-      #     kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Password:  \K\S+'
-      #     kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Username:  \K\S+'
+          username=$(kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Username:  \K\S+')
+          password=$(kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Password:  \K\S+')
+          if [ -z "$username" ] && [ -z "$password" ]; then echo "Error: controller not executed" && exit 1; fi
