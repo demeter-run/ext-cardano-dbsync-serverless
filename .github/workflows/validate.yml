@@ -32,14 +32,17 @@ jobs:
       - name: Load Image into Kind
         run: kind load docker-image ext-cardano-dbsync:1.0 --name k8scluster
 
+      - name: Apply manifest
+        run: kubectl apply -f test/manifest.yaml
+
+      - name: Wait containers is ready
+        run: sleep 8;
+
       - name: Apply manifests
-        run: |
-          kubectl apply -f test/manifest.yaml
-          kubectl apply -f test/dbsyncport.yaml
+        run: kubectl apply -f test/dbsyncport.yaml
 
       - name: Validate if CRD is working
         run: |
-          sleep 8;
           # kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Username:  \K\S+'
           # kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Password:  \K\S+'
           counter=0; while ((counter++ < 6)); do kubectl logs -n project "$(kubectl get pods -n project | grep -oP 'controller-\w+-\w+')"; sleep 2; done;
@@ -49,4 +52,3 @@ jobs:
       #   run: |
       #     kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Password:  \K\S+'
       #     kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Username:  \K\S+'
-
