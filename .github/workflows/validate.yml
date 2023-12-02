@@ -40,8 +40,10 @@ jobs:
       - name: Validate if CRD is working
         run: |
           sleep 8;
+          kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Username:  \K\S+'
+          kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Password:  \K\S+'
+          kubectl describe dbsyncports.demeter.run --namespace project useraccess
           counter=0; while ((counter++ < 6)); do kubectl logs -n project "$(kubectl get pods -n project | grep -oP 'controller-\w+-\w+')"; sleep 2; done;
-          # counter=0; while ((counter++ < 6)); do kubectl describe dbsyncports.demeter.run --namespace project useraccess; sleep 2; done;
 
       # - name: Collect controller status
       #   run: |
