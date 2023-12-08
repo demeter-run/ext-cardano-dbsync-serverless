@@ -1,7 +1,4 @@
-use crate::{
-    postgres::{self, user_already_exists, user_create, user_disable, user_enable},
-    Config, Error, Metrics, Result,
-};
+use crate::{postgres::Postgres, Config, Error, Metrics, Result};
 use futures::StreamExt;
 use kube::{
     api::{Patch, PatchParams},
@@ -75,11 +72,7 @@ impl DbSyncPort {
             .unwrap_or(false)
     }
 
-    async fn reconcile(
-        &self,
-        ctx: Arc<Context>,
-        pg_client: &mut tokio_postgres::Client,
-    ) -> Result<Action> {
+    async fn reconcile(&self, ctx: Arc<Context>, pg: &mut Postgres) -> Result<Action> {
         let client = ctx.client.clone();
         let ns = self.namespace().unwrap();
         let name = self.name_any();
@@ -89,9 +82,9 @@ impl DbSyncPort {
         let password = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
 
         if !self.was_executed() {
-            match user_already_exists(pg_client, &username).await? {
-                true => user_enable(pg_client, &username, &password).await?,
-                false => user_create(pg_client, &username, &password).await?,
+            match pg.user_already_exists(&username).await? {
+                true => pg.user_enable(&username, &password).await?,
+                false => pg.user_create(&username, &password).await?,
             };
 
             let new_status = Patch::Apply(json!({
@@ -114,13 +107,9 @@ impl DbSyncPort {
         Ok(Action::requeue(Duration::from_secs(5 * 60)))
     }
 
-    async fn cleanup(
-        &self,
-        ctx: Arc<Context>,
-        pg_client: &mut tokio_postgres::Client,
-    ) -> Result<Action> {
+    async fn cleanup(&self, ctx: Arc<Context>, pg: &mut Postgres) -> Result<Action> {
         let username = self.status.as_ref().unwrap().username.clone();
-        user_disable(pg_client, &username).await?;
+        pg.user_disable(&username).await?;
         ctx.metrics.count_user_deactivated(&username);
         Ok(Action::await_change())
     }
@@ -136,12 +125,12 @@ async fn reconcile(crd: Arc<DbSyncPort>, ctx: Arc<Context>) -> Result<Action> {
     let ns = crd.namespace().unwrap();
     let crds: Api<DbSyncPort> = Api::namespaced(ctx.client.clone(), &ns);
 
-    let mut pg_client = postgres::connect(url).await?;
+    let mut postgres = Postgres::new(url).await?;
 
     finalizer(&crds, DB_SYNC_PORT_FINALIZER, crd, |event| async {
         match event {
-            Event::Apply(crd) => crd.reconcile(ctx.clone(), &mut pg_client).await,
-            Event::Cleanup(crd) => crd.cleanup(ctx.clone(), &mut pg_client).await,
+            Event::Apply(crd) => crd.reconcile(ctx.clone(), &mut postgres).await,
+            Event::Cleanup(crd) => crd.cleanup(ctx.clone(), &mut postgres).await,
         }
     })
     .await
