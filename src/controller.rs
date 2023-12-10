@@ -1,4 +1,3 @@
-use crate::{postgres::Postgres, Config, Error, Metrics, Result};
 use futures::StreamExt;
 use kube::{
     api::{Patch, PatchParams},
@@ -17,6 +16,8 @@ use serde_json::json;
 use std::{sync::Arc, time::Duration};
 use tracing::error;
 
+use crate::{postgres::Postgres, Config, Error, Metrics, State};
+
 pub static DB_SYNC_PORT_FINALIZER: &str = "dbsyncports.demeter.run";
 
 struct Context {
@@ -31,15 +32,6 @@ impl Context {
             metrics,
             config,
         }
-    }
-}
-#[derive(Clone, Default)]
-pub struct State {
-    registry: prometheus::Registry,
-}
-impl State {
-    pub fn metrics(&self) -> Vec<prometheus::proto::MetricFamily> {
-        self.registry.gather()
     }
 }
 
@@ -72,7 +64,7 @@ impl DbSyncPort {
             .unwrap_or(false)
     }
 
-    async fn reconcile(&self, ctx: Arc<Context>, pg: &mut Postgres) -> Result<Action> {
+    async fn reconcile(&self, ctx: Arc<Context>, pg: &mut Postgres) -> Result<Action, Error> {
         let client = ctx.client.clone();
         let ns = self.namespace().unwrap();
         let name = self.name_any();
@@ -107,7 +99,7 @@ impl DbSyncPort {
         Ok(Action::requeue(Duration::from_secs(5 * 60)))
     }
 
-    async fn cleanup(&self, ctx: Arc<Context>, pg: &mut Postgres) -> Result<Action> {
+    async fn cleanup(&self, ctx: Arc<Context>, pg: &mut Postgres) -> Result<Action, Error> {
         let username = self.status.as_ref().unwrap().username.clone();
         pg.user_disable(&username).await?;
         ctx.metrics.count_user_deactivated(&username);
@@ -115,7 +107,7 @@ impl DbSyncPort {
     }
 }
 
-async fn reconcile(crd: Arc<DbSyncPort>, ctx: Arc<Context>) -> Result<Action> {
+async fn reconcile(crd: Arc<DbSyncPort>, ctx: Arc<Context>) -> Result<Action, Error> {
     let url = match crd.spec.network {
         Network::Mainnet => &ctx.config.db_url_mainnet,
         Network::Preprod => &ctx.config.db_url_preprod,
@@ -143,11 +135,11 @@ fn error_policy(crd: Arc<DbSyncPort>, err: &Error, ctx: Arc<Context>) -> Action 
     Action::requeue(Duration::from_secs(5))
 }
 
-pub async fn run(state: State, config: Config) -> Result<(), Error> {
+pub async fn run(state: Arc<State>, config: Config) -> Result<(), Error> {
     let client = Client::try_default().await?;
     let crds = Api::<DbSyncPort>::all(client.clone());
-    let metrics = Metrics::default().register(&state.registry).unwrap();
-    let ctx = Context::new(client, metrics, config);
+
+    let ctx = Context::new(client, state.metrics.clone(), config);
 
     Controller::new(crds, WatcherConfig::default().any_semantic())
         .shutdown_on_signal()

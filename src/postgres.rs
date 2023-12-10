@@ -1,18 +1,6 @@
-use tokio_postgres::{Client, NoTls};
+use tokio_postgres::{Client, NoTls, Row};
 
 use crate::Error;
-
-// const QUERY_GET_METRICS: &str = "
-//     SELECT
-//         usename,
-//         SUM(calls) AS total_queries,
-//         SUM(total_exec_time) AS total_exec_time
-//     FROM
-//         pg_stat_statements
-//     inner join
-//         pg_catalog.pg_user on pg_catalog.pg_user.usesysid = userid
-//     GROUP BY
-//         usename;";
 
 pub struct Postgres {
     client: Client,
@@ -97,6 +85,39 @@ impl Postgres {
 
         Ok(result.is_some())
     }
+
+    pub async fn user_metrics(&self) -> Result<Option<Vec<UserStatements>>, Error> {
+        let query_metrics = "SELECT
+            usename,
+            SUM(calls) AS total_queries,
+            SUM(total_exec_time) AS total_exec_time
+        FROM
+            pg_stat_statements
+        inner join
+            pg_catalog.pg_user on pg_catalog.pg_user.usesysid = userid
+        GROUP BY
+            usename;";
+
+        let stmt = self.client.prepare(&query_metrics).await?;
+        let result = self.client.query(&stmt, &[]).await?;
+
+        Ok(result
+            .is_empty()
+            .then_some(result.iter().map(|r| r.into()).collect()))
+    }
 }
 
-pub async fn get_metrics() {}
+pub struct UserStatements {
+    pub usename: String,
+    pub total_queries: u32,
+    pub total_exec_time: u32,
+}
+impl From<&Row> for UserStatements {
+    fn from(row: &Row) -> Self {
+        Self {
+            usename: row.get("usename"),
+            total_queries: row.get("total_queries"),
+            total_exec_time: row.get("total_exec_time"),
+        }
+    }
+}

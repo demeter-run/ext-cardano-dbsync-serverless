@@ -1,6 +1,12 @@
-use crate::{DbSyncPort, Error};
 use kube::ResourceExt;
 use prometheus::{opts, IntCounterVec, Registry};
+use std::{sync::Arc, thread::sleep};
+use tracing::error;
+
+use crate::{
+    postgres::Postgres,
+    Config, DbSyncPort, Error, State,
+};
 
 #[derive(Clone)]
 pub struct Metrics {
@@ -66,5 +72,41 @@ impl Metrics {
 
     pub fn count_user_deactivated(&self, username: &str) {
         self.users_deactivated.with_label_values(&[username]).inc();
+    }
+}
+
+pub async fn run_metrics_collector(state: Arc<State>, config: Config) -> Result<(), Error> {
+    let db_urls = &vec![
+        config.db_url_mainnet,
+        config.db_url_preprod,
+        config.db_url_preview,
+    ];
+
+    loop {
+        for url in db_urls {
+            let postgres_result = Postgres::new(url).await;
+            if let Err(err) = postgres_result {
+                error!("Error to connect postgres: {err}");
+                continue;
+            }
+            let postgres = postgres_result.unwrap();
+
+            let user_statements_result = postgres.user_metrics().await;
+            if let Err(err) = user_statements_result {
+                error!("Error get user statements: {err}");
+                continue;
+            }
+
+            let user_statements = user_statements_result.unwrap();
+            if user_statements.is_none() {
+                continue;
+            }
+
+            let user_statements = user_statements.unwrap();
+            
+            // TODO: calculate dcu
+        }
+
+        sleep(config.metrics_delay)
     }
 }

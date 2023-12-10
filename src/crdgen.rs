@@ -1,3 +1,4 @@
+use ext_cardano_dbsync::controller;
 use kube::CustomResourceExt;
 
 fn main() {
