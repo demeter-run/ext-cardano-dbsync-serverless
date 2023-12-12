@@ -1,8 +1,7 @@
 apiVersion: demeter.run/v1
 kind: DbSyncPort
 metadata:
-  name: useraccess
-  namespace: project
+  name: ci-user
+  namespace: prj-ci-test
 spec:
   network: "preview"
-
