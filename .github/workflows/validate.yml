@@ -43,6 +43,6 @@ jobs:
 
       - name: Validate if controller was executed
         run: |
-          username=$(kubectl describe dbsyncports.demeter.run --namespace prj-ci-test useraccess | grep -oP 'Username:  \K\S+')
-          password=$(kubectl describe dbsyncports.demeter.run --namespace prj-ci-test useraccess | grep -oP 'Password:  \K\S+')
+          username=$(kubectl describe dbsyncports.demeter.run --namespace prj-ci-test ci-user | grep -oP 'Username:  \K\S+')
+          password=$(kubectl describe dbsyncports.demeter.run --namespace prj-ci-test ci-user | grep -oP 'Password:  \K\S+')
           if [ -z "$username" ] && [ -z "$password" ]; then echo "Error: controller not executed" && exit 1; fi
