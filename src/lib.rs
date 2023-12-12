@@ -1,7 +1,9 @@
-use std::time::Duration;
-
 use prometheus::Registry;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use std::{fmt::Display, time::Duration};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -22,6 +24,9 @@ pub enum Error {
 
     #[error("Parse Int Error: {0}")]
     ParseIntError(#[source] std::num::ParseIntError),
+
+    #[error("Parse Float Error: {0}")]
+    ParseFloatError(#[source] std::num::ParseFloatError),
 }
 
 impl Error {
@@ -54,6 +59,11 @@ impl From<std::num::ParseIntError> for Error {
         Error::ParseIntError(value)
     }
 }
+impl From<std::num::ParseFloatError> for Error {
+    fn from(value: std::num::ParseFloatError) -> Self {
+        Error::ParseFloatError(value)
+    }
+}
 
 #[derive(Clone, Default)]
 pub struct State {
@@ -77,24 +87,53 @@ pub struct Config {
     pub db_url_mainnet: String,
     pub db_url_preprod: String,
     pub db_url_preview: String,
+
+    pub dcu_per_second_mainnet: f64,
+    pub dcu_per_second_preprod: f64,
+    pub dcu_per_second_preview: f64,
+
     pub metrics_delay: Duration,
-    pub dcu_base: u64,
 }
 impl Config {
     pub fn try_new() -> Result<Self, Error> {
         let db_url_mainnet = std::env::var("DB_URL_MAINNET")?;
         let db_url_preprod = std::env::var("DB_URL_PREPROD")?;
         let db_url_preview = std::env::var("DB_URL_PREVIEW")?;
+
         let metrics_delay = Duration::from_secs(std::env::var("METRICS_DELAY")?.parse::<u64>()?);
-        let dcu_base = std::env::var("DCU_BASE")?.parse::<u64>()?;
+
+        let dcu_per_second_mainnet = std::env::var("DCU_PER_SECOND_MAINNET")?.parse::<f64>()?;
+        let dcu_per_second_preprod = std::env::var("DCU_PER_SECOND_PREPROD")?.parse::<f64>()?;
+        let dcu_per_second_preview = std::env::var("DCU_PER_SECOND_PREVIEW")?.parse::<f64>()?;
 
         Ok(Self {
             db_url_mainnet,
             db_url_preprod,
             db_url_preview,
             metrics_delay,
-            dcu_base,
+            dcu_per_second_mainnet,
+            dcu_per_second_preprod,
+            dcu_per_second_preview,
         })
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
+pub enum Network {
+    #[serde(rename = "mainnet")]
+    Mainnet,
+    #[serde(rename = "preprod")]
+    Preprod,
+    #[serde(rename = "preview")]
+    Preview,
+}
+impl Display for Network {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Network::Mainnet => write!(f, "mainnet"),
+            Network::Preprod => write!(f, "preprod"),
+            Network::Preview => write!(f, "preview"),
+        }
     }
 }
 

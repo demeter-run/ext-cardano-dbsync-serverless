@@ -16,7 +16,7 @@ use serde_json::json;
 use std::{sync::Arc, time::Duration};
 use tracing::error;
 
-use crate::{postgres::Postgres, Config, Error, Metrics, State};
+use crate::{postgres::Postgres, Config, Error, Metrics, State, Network};
 
 pub static DB_SYNC_PORT_FINALIZER: &str = "dbsyncports.demeter.run";
 
@@ -33,16 +33,6 @@ impl Context {
             config,
         }
     }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
-pub enum Network {
-    #[serde(rename = "mainnet")]
-    Mainnet,
-    #[serde(rename = "preprod")]
-    Preprod,
-    #[serde(rename = "preview")]
-    Preview,
 }
 
 #[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema)]

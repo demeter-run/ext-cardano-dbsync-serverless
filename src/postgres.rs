@@ -89,34 +89,38 @@ impl Postgres {
     pub async fn user_metrics(&self) -> Result<Option<Vec<UserStatements>>, Error> {
         let query_metrics = "SELECT
             usename,
-            SUM(calls) AS total_queries,
             SUM(total_exec_time) AS total_exec_time
         FROM
             pg_stat_statements
         inner join
             pg_catalog.pg_user on pg_catalog.pg_user.usesysid = userid
-        GROUP BY
+        where 
+            pg_catalog.pg_user.usename like '%.prj-%'
+        group by
             usename;";
 
-        let stmt = self.client.prepare(&query_metrics).await?;
+        let stmt = self.client.prepare(query_metrics).await?;
         let result = self.client.query(&stmt, &[]).await?;
 
-        Ok(result
-            .is_empty()
-            .then_some(result.iter().map(|r| r.into()).collect()))
+        if !result.is_empty() {
+            let user_statements: Vec<UserStatements> =
+                result.iter().map(|row| row.into()).collect();
+            return Ok(Some(user_statements));
+        }
+
+        Ok(None)
     }
 }
 
+#[derive(Debug)]
 pub struct UserStatements {
     pub usename: String,
-    pub total_queries: u32,
-    pub total_exec_time: u32,
+    pub total_exec_time: f64,
 }
 impl From<&Row> for UserStatements {
     fn from(row: &Row) -> Self {
         Self {
             usename: row.get("usename"),
-            total_queries: row.get("total_queries"),
             total_exec_time: row.get("total_exec_time"),
         }
     }

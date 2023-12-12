@@ -1,11 +1,11 @@
-use kube::ResourceExt;
+use kube::{Resource, ResourceExt};
 use prometheus::{opts, IntCounterVec, Registry};
 use std::{sync::Arc, thread::sleep};
 use tracing::error;
 
 use crate::{
-    postgres::Postgres,
-    Config, DbSyncPort, Error, State,
+    postgres::{Postgres, UserStatements},
+    Config, DbSyncPort, Error, Network, State,
 };
 
 #[derive(Clone)]
@@ -13,6 +13,7 @@ pub struct Metrics {
     pub users_created: IntCounterVec,
     pub users_deactivated: IntCounterVec,
     pub failures: IntCounterVec,
+    pub dcu: IntCounterVec,
 }
 
 impl Default for Metrics {
@@ -44,10 +45,17 @@ impl Default for Metrics {
         )
         .unwrap();
 
+        let dcu = IntCounterVec::new(
+            opts!("dmtr_consumed_dcus", "quantity of dcu consumed",),
+            &["project", "service", "service_type", "tenancy"],
+        )
+        .unwrap();
+
         Metrics {
             users_created,
             users_deactivated,
             failures,
+            dcu,
         }
     }
 }
@@ -57,6 +65,7 @@ impl Metrics {
         registry.register(Box::new(self.failures.clone()))?;
         registry.register(Box::new(self.users_created.clone()))?;
         registry.register(Box::new(self.users_deactivated.clone()))?;
+        registry.register(Box::new(self.dcu.clone()))?;
         Ok(self)
     }
 
@@ -73,17 +82,45 @@ impl Metrics {
     pub fn count_user_deactivated(&self, username: &str) {
         self.users_deactivated.with_label_values(&[username]).inc();
     }
+
+    pub fn count_dcu_consumed(&self, usename: &str, network: &Network, dcu: f64) {
+        let project = usename.split_once("prj-").unwrap().1;
+        let service = format!("{}-{}", DbSyncPort::kind(&()), network);
+        let service_type = format!("{}.{}", DbSyncPort::plural(&()), DbSyncPort::group(&()));
+        let tenancy = "proxy";
+
+        let dcu: u64 = dcu.ceil() as u64;
+
+        self.dcu
+            .with_label_values(&[project, &service, &service_type, tenancy])
+            .inc_by(dcu);
+    }
 }
 
 pub async fn run_metrics_collector(state: Arc<State>, config: Config) -> Result<(), Error> {
-    let db_urls = &vec![
-        config.db_url_mainnet,
-        config.db_url_preprod,
-        config.db_url_preview,
+    let mut network_state: Vec<(Network, String, f64, Option<Vec<UserStatements>>)> = vec![
+        (
+            Network::Mainnet,
+            config.db_url_mainnet,
+            config.dcu_per_second_mainnet,
+            None,
+        ),
+        (
+            Network::Preprod,
+            config.db_url_preprod,
+            config.dcu_per_second_preprod,
+            None,
+        ),
+        (
+            Network::Preview,
+            config.db_url_preview,
+            config.dcu_per_second_preview,
+            None,
+        ),
     ];
 
     loop {
-        for url in db_urls {
+        for (network, url, dcu_per_second, latest_execution) in network_state.iter_mut() {
             let postgres_result = Postgres::new(url).await;
             if let Err(err) = postgres_result {
                 error!("Error to connect postgres: {err}");
@@ -103,8 +140,32 @@ pub async fn run_metrics_collector(state: Arc<State>, config: Config) -> Result<
             }
 
             let user_statements = user_statements.unwrap();
-            
-            // TODO: calculate dcu
+
+            if let Some(latest_execution) = latest_execution {
+                for user_statement in user_statements.iter() {
+                    let latest_user_statement = latest_execution
+                        .iter()
+                        .find(|le| le.usename.eq(&user_statement.usename));
+
+                    let mut total_exec_time = user_statement.total_exec_time;
+
+                    if let Some(latest_user_statement) = latest_user_statement {
+                        total_exec_time =
+                            user_statement.total_exec_time - latest_user_statement.total_exec_time;
+                    }
+
+                    if total_exec_time == 0.0 {
+                        continue;
+                    }
+
+                    let dcu = (total_exec_time / 1000.) * dcu_per_second as &f64;
+                    state
+                        .metrics
+                        .count_dcu_consumed(&user_statement.usename, network, dcu);
+                }
+            }
+
+            *latest_execution = Some(user_statements);
         }
 
         sleep(config.metrics_delay)
