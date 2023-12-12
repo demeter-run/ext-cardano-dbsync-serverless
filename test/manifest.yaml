@@ -196,3 +196,11 @@ spec:
       port: 80
       targetPort: 80
       protocol: TCP
+---
+apiVersion: demeter.run/v1
+kind: DbSyncPort
+metadata:
+  name: ci-user
+  namespace: prj-ci-test
+spec:
+  network: "preview"

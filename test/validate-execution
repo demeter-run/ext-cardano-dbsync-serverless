@@ -1,0 +1,15 @@
+ATTEMPT=1
+MAX_ATTEMPT=60
+
+echo "Checking if the controller was executed."
+while [ -z "$EXT_USERNAME" ] && [ -z "$EXT_PASSWORD" ] && [ $ATTEMPT -lt $MAX_ATTEMPT ]; do
+    let ATTEMPT=ATTEMPT+1 
+    EXT_USERNAME=$(kubectl describe dbsyncports.demeter.run --namespace prj-ci-test ci-user | grep -oP 'Username:  \K\S+')
+    EXT_PASSWORD=$(kubectl describe dbsyncports.demeter.run --namespace prj-ci-test ci-user | grep -oP 'Password:  \K\S+')
+    sleep 2 
+done
+
+if [ -z "$EXT_USERNAME" ] && [ -z "$EXT_PASSWORD" ]; then 
+    echo "Error: controller not executed" 
+    exit 1
+fi
