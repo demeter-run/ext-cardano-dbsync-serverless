@@ -41,6 +41,9 @@ jobs:
       - name: Apply manifests
         run: kubectl apply -f test/dbsyncport.yaml
 
+      - name: Wait controller executation
+        run: sleep 8;
+
       - name: Validate if controller was executed
         run: |
           username=$(kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Username:  \K\S+')
