@@ -1,7 +1,3 @@
-use crate::{
-    postgres::{self, user_already_exists, user_create, user_disable, user_enable},
-    Config, Error, Metrics, Result,
-};
 use futures::StreamExt;
 use kube::{
     api::{Patch, PatchParams},
@@ -20,6 +16,8 @@ use serde_json::json;
 use std::{sync::Arc, time::Duration};
 use tracing::error;
 
+use crate::{postgres::Postgres, Config, Error, Metrics, State, Network};
+
 pub static DB_SYNC_PORT_FINALIZER: &str = "dbsyncports.demeter.run";
 
 struct Context {
@@ -35,25 +33,6 @@ impl Context {
             config,
         }
     }
-}
-#[derive(Clone, Default)]
-pub struct State {
-    registry: prometheus::Registry,
-}
-impl State {
-    pub fn metrics(&self) -> Vec<prometheus::proto::MetricFamily> {
-        self.registry.gather()
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
-pub enum Network {
-    #[serde(rename = "mainnet")]
-    Mainnet,
-    #[serde(rename = "preprod")]
-    Preprod,
-    #[serde(rename = "preview")]
-    Preview,
 }
 
 #[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema)]
@@ -75,11 +54,7 @@ impl DbSyncPort {
             .unwrap_or(false)
     }
 
-    async fn reconcile(
-        &self,
-        ctx: Arc<Context>,
-        pg_client: &mut tokio_postgres::Client,
-    ) -> Result<Action> {
+    async fn reconcile(&self, ctx: Arc<Context>, pg: &mut Postgres) -> Result<Action, Error> {
         let client = ctx.client.clone();
         let ns = self.namespace().unwrap();
         let name = self.name_any();
@@ -89,9 +64,9 @@ impl DbSyncPort {
         let password = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
 
         if !self.was_executed() {
-            match user_already_exists(pg_client, &username).await? {
-                true => user_enable(pg_client, &username, &password).await?,
-                false => user_create(pg_client, &username, &password).await?,
+            match pg.user_already_exists(&username).await? {
+                true => pg.user_enable(&username, &password).await?,
+                false => pg.user_create(&username, &password).await?,
             };
 
             let new_status = Patch::Apply(json!({
@@ -114,19 +89,15 @@ impl DbSyncPort {
         Ok(Action::requeue(Duration::from_secs(5 * 60)))
     }
 
-    async fn cleanup(
-        &self,
-        ctx: Arc<Context>,
-        pg_client: &mut tokio_postgres::Client,
-    ) -> Result<Action> {
+    async fn cleanup(&self, ctx: Arc<Context>, pg: &mut Postgres) -> Result<Action, Error> {
         let username = self.status.as_ref().unwrap().username.clone();
-        user_disable(pg_client, &username).await?;
+        pg.user_disable(&username).await?;
         ctx.metrics.count_user_deactivated(&username);
         Ok(Action::await_change())
     }
 }
 
-async fn reconcile(crd: Arc<DbSyncPort>, ctx: Arc<Context>) -> Result<Action> {
+async fn reconcile(crd: Arc<DbSyncPort>, ctx: Arc<Context>) -> Result<Action, Error> {
     let url = match crd.spec.network {
         Network::Mainnet => &ctx.config.db_url_mainnet,
         Network::Preprod => &ctx.config.db_url_preprod,
@@ -136,12 +107,12 @@ async fn reconcile(crd: Arc<DbSyncPort>, ctx: Arc<Context>) -> Result<Action> {
     let ns = crd.namespace().unwrap();
     let crds: Api<DbSyncPort> = Api::namespaced(ctx.client.clone(), &ns);
 
-    let mut pg_client = postgres::connect(url).await?;
+    let mut postgres = Postgres::new(url).await?;
 
     finalizer(&crds, DB_SYNC_PORT_FINALIZER, crd, |event| async {
         match event {
-            Event::Apply(crd) => crd.reconcile(ctx.clone(), &mut pg_client).await,
-            Event::Cleanup(crd) => crd.cleanup(ctx.clone(), &mut pg_client).await,
+            Event::Apply(crd) => crd.reconcile(ctx.clone(), &mut postgres).await,
+            Event::Cleanup(crd) => crd.cleanup(ctx.clone(), &mut postgres).await,
         }
     })
     .await
@@ -154,11 +125,11 @@ fn error_policy(crd: Arc<DbSyncPort>, err: &Error, ctx: Arc<Context>) -> Action 
     Action::requeue(Duration::from_secs(5))
 }
 
-pub async fn run(state: State, config: Config) -> Result<(), Error> {
+pub async fn run(state: Arc<State>, config: Config) -> Result<(), Error> {
     let client = Client::try_default().await?;
     let crds = Api::<DbSyncPort>::all(client.clone());
-    let metrics = Metrics::default().register(&state.registry).unwrap();
-    let ctx = Context::new(client, metrics, config);
+
+    let ctx = Context::new(client, state.metrics.clone(), config);
 
     Controller::new(crds, WatcherConfig::default().any_semantic())
         .shutdown_on_signal()

@@ -1,8 +1,8 @@
 apiVersion: demeter.run/v1
 kind: DbSyncPort
 metadata:
-  name: useraccess
-  namespace: cardanowarriors
+  name: mainnet-user
+  namespace: prj-mainnet-test
 spec:
-  network: "preview"
+  network: "mainnet"
 

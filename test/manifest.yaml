@@ -2,14 +2,14 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: project
+  name: prj-ci-test
 ---
 # Postgres dependence
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
-  namespace: project
+  namespace: prj-ci-test
   labels:
     app: postgres
 spec:
@@ -41,7 +41,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: app
-  namespace: project
+  namespace: prj-ci-test
   labels:
     app: postgres
 spec:
@@ -55,7 +55,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: controller
-  namespace: project
+  namespace: prj-ci-test
   labels:
     app: controller
     app.kubernetes.io/name: controller
@@ -107,7 +107,7 @@ metadata:
     app: controller
     app.kubernetes.io/name: controller
     app.kubernetes.io/version: "0.12.11"
-  namespace: project
+  namespace: prj-ci-test
 automountServiceAccountToken: true
 ---
 # Access for the service account
@@ -130,7 +130,7 @@ metadata:
   name: controller
 subjects:
   - kind: ServiceAccount
-    namespace: project
+    namespace: prj-ci-test
     name: controller
 roleRef:
   kind: ClusterRole
@@ -142,7 +142,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: controller
-  namespace: project
+  namespace: prj-ci-test
   labels:
     app: controller
 spec:
@@ -164,11 +164,19 @@ spec:
             - name: ADDR
               value: "0.0.0.0:80"
             - name: DB_URL_MAINNET
-              value: "postgres://user:password@app.project.svc.cluster.local:5432/postgres?sslmode=disable"
+              value: "postgres://user:password@app.prj-ci-test.svc.cluster.local:5432/postgres?sslmode=disable"
             - name: DB_URL_PREPROD
-              value: "postgres://user:password@app.project.svc.cluster.local:5432/postgres?sslmode=disable"
+              value: "postgres://user:password@app.prj-ci-test.svc.cluster.local:5432/postgres?sslmode=disable"
             - name: DB_URL_PREVIEW
-              value: "postgres://user:password@app.project.svc.cluster.local:5432/postgres?sslmode=disable"
+              value: "postgres://user:password@app.prj-ci-test.svc.cluster.local:5432/postgres?sslmode=disable"
+            - name: METRICS_DELAY
+              value: "30"
+            - name: DCU_PER_SECOND_MAINNET
+              value: "10"
+            - name: DCU_PER_SECOND_PREPROD
+              value: "10"
+            - name: DCU_PER_SECOND_PREVIEW
+              value: "10"
             - name: RUST_LOG
               value: info,kube=debug,controller=debug
 ---
@@ -176,7 +184,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: api
-  namespace: project
+  namespace: prj-ci-test
   labels:
     app: controller
 spec:
@@ -188,3 +196,11 @@ spec:
       port: 80
       targetPort: 80
       protocol: TCP
+---
+apiVersion: demeter.run/v1
+kind: DbSyncPort
+metadata:
+  name: ci-user
+  namespace: prj-ci-test
+spec:
+  network: "preview"

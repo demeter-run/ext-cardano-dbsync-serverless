@@ -32,17 +32,8 @@ jobs:
       - name: Load Image into Kind
         run: kind load docker-image ext-cardano-dbsync:1.0 --name k8scluster
 
-      - name: Apply manifest
-        run: kubectl apply -f test/manifest.yaml
-
-      - name: Wait containers is ready
-        run: sleep 8;
-
       - name: Apply manifests
-        run: kubectl apply -f test/dbsyncport.yaml
+        run: kubectl apply -f test
 
-      - name: Validate if controller was executed
-        run: |
-          username=$(kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Username:  \K\S+')
-          password=$(kubectl describe dbsyncports.demeter.run --namespace project useraccess | grep -oP 'Password:  \K\S+')
-          if [ -z "$username" ] && [ -z "$password" ]; then echo "Error: controller not executed" && exit 1; fi
+      - name: Validate controller
+        run: ./test/validate-execution
