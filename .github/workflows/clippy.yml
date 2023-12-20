@@ -12,9 +12,10 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-        with:
-          sparse-checkout: operator
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - run: cd operator
 
       - name: Clippy check lints
         run: cargo clippy -- -D warnings
