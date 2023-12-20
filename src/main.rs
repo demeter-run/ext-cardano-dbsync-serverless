@@ -4,7 +4,6 @@ use actix_web::{
 use dotenv::dotenv;
 use prometheus::{Encoder, TextEncoder};
 use std::{io, sync::Arc};
-use tracing::error;
 
 use ext_cardano_dbsync::{controller, metrics as metrics_collector, Config, State};
 
@@ -29,8 +28,11 @@ async fn main() -> io::Result<()> {
     let state = Arc::new(State::new());
     let config = Config::try_new().unwrap();
 
-    let controller = controller::run(state.clone(), config.clone());
-    let metrics_collector = metrics_collector::run_metrics_collector(state.clone(), config.clone());
+    let controller = tokio::spawn(controller::run(state.clone(), config.clone()));
+    let metrics_collector = tokio::spawn(metrics_collector::run_metrics_collector(
+        state.clone(),
+        config.clone(),
+    ));
 
     let addr = std::env::var("ADDR").unwrap_or("0.0.0.0:8080".into());
 
@@ -43,11 +45,7 @@ async fn main() -> io::Result<()> {
     })
     .bind(addr)?;
 
-    let result = tokio::join!(controller, metrics_collector, server.run()).1;
-    if let Err(err) = result {
-        error!("{err}");
-        std::process::exit(1)
-    }
+    tokio::join!(controller, metrics_collector, server.run()).2?;
 
     Ok(())
 }
