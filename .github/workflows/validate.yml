@@ -3,10 +3,10 @@ name: Validate controller
 on:
   push:
     branches:
-      - "main"
-    paths:
-      - ".github/workflows/validate.yml"
-      - "operator/**"
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   run-controller:
