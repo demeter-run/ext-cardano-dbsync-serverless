@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          path: operator
+          sparse-checkout: operator
 
       - name: Clippy check lints
         run: cargo clippy -- -D warnings
