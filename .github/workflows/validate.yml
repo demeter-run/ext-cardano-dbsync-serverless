@@ -3,19 +3,23 @@ name: Validate controller
 on:
   push:
     branches:
-      - main
-  pull_request:
-    branches:
-      - main
+      - "main"
+    paths:
+      - ".github/workflows/validate.yml"
+      - "operator/**"
 
 jobs:
   run-controller:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - context: operator
+
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        
-      - run: cd operator
 
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1.5.0

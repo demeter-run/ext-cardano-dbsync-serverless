@@ -3,13 +3,19 @@ name: Clippy
 on:
   push:
     branches:
-      - main
-  pull_request:
-    branches:
-      - main
+      - "main"
+    paths:
+      - ".github/workflows/clippy.yml"
+      - "operator/**"
 
 jobs:
   lint:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - context: operator
+
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
