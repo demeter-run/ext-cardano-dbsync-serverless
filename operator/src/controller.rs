@@ -16,7 +16,7 @@ use serde_json::json;
 use std::{sync::Arc, time::Duration};
 use tracing::error;
 
-use crate::{postgres::Postgres, Config, Error, Metrics, State, Network};
+use crate::{postgres::Postgres, Config, Error, Metrics, Network, State};
 
 pub static DB_SYNC_PORT_FINALIZER: &str = "dbsyncports.demeter.run";
 
@@ -36,8 +36,18 @@ impl Context {
 }
 
 #[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema)]
-#[kube(kind = "DbSyncPort", group = "demeter.run", version = "v1", namespaced)]
+#[kube(
+    kind = "DbSyncPort",
+    group = "demeter.run",
+    version = "v1alpha1",
+    namespaced
+)]
 #[kube(status = "DbSyncPortStatus")]
+#[kube(printcolumn = r#"
+        {"name": "Network", "jsonPath": ".spec.network", "type": "string"},
+        {"name": "Username", "jsonPath": ".status.username",  "type": "string"},
+        {"name": "Password", "jsonPath": ".status.password", "type": "string"}
+    "#)]
 pub struct DbSyncPortSpec {
     pub network: Network,
 }
