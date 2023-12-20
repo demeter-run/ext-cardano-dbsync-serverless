@@ -17,8 +17,24 @@ resource "kubernetes_manifest" "customresourcedefinition_dbsyncports_demeter_run
       "scope" = "Namespaced"
       "versions" = [
         {
-          "additionalPrinterColumns" = []
-          "name" = "v1"
+          "additionalPrinterColumns" = [
+            {
+              "jsonPath" = ".spec.network"
+              "name" = "Network"
+              "type" = "string"
+            },
+            {
+              "jsonPath" = ".status.username"
+              "name" = "Username"
+              "type" = "string"
+            },
+            {
+              "jsonPath" = ".status.password"
+              "name" = "Password"
+              "type" = "string"
+            },
+          ]
+          "name" = "v1alpha1"
           "schema" = {
             "openAPIV3Schema" = {
               "description" = "Auto-generated derived type for DbSyncPortSpec via `CustomResource`"
