@@ -12,7 +12,8 @@ use crate::{
 pub struct Metrics {
     pub users_created: IntCounterVec,
     pub users_deactivated: IntCounterVec,
-    pub failures: IntCounterVec,
+    pub reconcile_failures: IntCounterVec,
+    pub metrics_failures: IntCounterVec,
     pub dcu: IntCounterVec,
 }
 
@@ -36,12 +37,21 @@ impl Default for Metrics {
         )
         .unwrap();
 
-        let failures = IntCounterVec::new(
+        let reconcile_failures = IntCounterVec::new(
             opts!(
                 "crd_controller_reconciliation_errors_total",
                 "reconciliation errors",
             ),
             &["instance", "error"],
+        )
+        .unwrap();
+
+        let metrics_failures = IntCounterVec::new(
+            opts!(
+                "metrics_controller_errors_total",
+                "errors to calculation metrics",
+            ),
+            &["error"],
         )
         .unwrap();
 
@@ -54,7 +64,8 @@ impl Default for Metrics {
         Metrics {
             users_created,
             users_deactivated,
-            failures,
+            reconcile_failures,
+            metrics_failures,
             dcu,
         }
     }
@@ -62,7 +73,7 @@ impl Default for Metrics {
 
 impl Metrics {
     pub fn register(self, registry: &Registry) -> Result<Self, prometheus::Error> {
-        registry.register(Box::new(self.failures.clone()))?;
+        registry.register(Box::new(self.reconcile_failures.clone()))?;
         registry.register(Box::new(self.users_created.clone()))?;
         registry.register(Box::new(self.users_deactivated.clone()))?;
         registry.register(Box::new(self.dcu.clone()))?;
@@ -70,8 +81,14 @@ impl Metrics {
     }
 
     pub fn reconcile_failure(&self, crd: &DbSyncPort, e: &Error) {
-        self.failures
+        self.reconcile_failures
             .with_label_values(&[crd.name_any().as_ref(), e.metric_label().as_ref()])
+            .inc()
+    }
+
+    pub fn metrics_failure(&self, e: &Error) {
+        self.metrics_failures
+            .with_label_values(&[e.metric_label().as_ref()])
             .inc()
     }
 
@@ -124,6 +141,7 @@ pub async fn run_metrics_collector(state: Arc<State>, config: Config) -> Result<
             let postgres_result = Postgres::new(url).await;
             if let Err(err) = postgres_result {
                 error!("Error to connect postgres: {err}");
+                state.metrics.metrics_failure(&err);
                 continue;
             }
             let postgres = postgres_result.unwrap();
@@ -131,6 +149,7 @@ pub async fn run_metrics_collector(state: Arc<State>, config: Config) -> Result<
             let user_statements_result = postgres.user_metrics().await;
             if let Err(err) = user_statements_result {
                 error!("Error get user statements: {err}");
+                state.metrics.metrics_failure(&err);
                 continue;
             }
 
