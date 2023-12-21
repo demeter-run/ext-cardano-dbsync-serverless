@@ -80,7 +80,7 @@ impl DbSyncPort {
             };
 
             let new_status = Patch::Apply(json!({
-                "apiVersion": "demeter.run/v1",
+                "apiVersion": "demeter.run/v1alpha1",
                 "kind": "DbSyncPort",
                 "status": DbSyncPortStatus {
                     username: username.clone(),
