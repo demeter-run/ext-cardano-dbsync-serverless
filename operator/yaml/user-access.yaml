@@ -1,4 +1,4 @@
-apiVersion: demeter.run/v1
+apiVersion: demeter.run/v1alpha1
 kind: DbSyncPort
 metadata:
   name: mainnet-user
