@@ -8,7 +8,7 @@ use crate::{get_config, postgres::UserStatements, DbSyncPort, Error, Network, St
 #[derive(Clone)]
 pub struct Metrics {
     pub users_created: IntCounterVec,
-    pub users_droped: IntCounterVec,
+    pub users_dropped: IntCounterVec,
     pub reconcile_failures: IntCounterVec,
     pub metrics_failures: IntCounterVec,
     pub dcu: IntCounterVec,
@@ -25,10 +25,10 @@ impl Default for Metrics {
         )
         .unwrap();
 
-        let users_droped = IntCounterVec::new(
+        let users_dropped = IntCounterVec::new(
             opts!(
-                "dmtr_dbsync_users_droped_total",
-                "total of users droped in dbsync",
+                "dmtr_dbsync_users_dropped_total",
+                "total of users dropped in dbsync",
             ),
             &["project", "network"],
         )
@@ -60,7 +60,7 @@ impl Default for Metrics {
 
         Metrics {
             users_created,
-            users_droped,
+            users_dropped,
             reconcile_failures,
             metrics_failures,
             dcu,
@@ -72,7 +72,7 @@ impl Metrics {
     pub fn register(self, registry: &Registry) -> Result<Self, prometheus::Error> {
         registry.register(Box::new(self.reconcile_failures.clone()))?;
         registry.register(Box::new(self.users_created.clone()))?;
-        registry.register(Box::new(self.users_droped.clone()))?;
+        registry.register(Box::new(self.users_dropped.clone()))?;
         registry.register(Box::new(self.dcu.clone()))?;
         Ok(self)
     }
@@ -96,9 +96,9 @@ impl Metrics {
             .inc();
     }
 
-    pub fn count_user_droped(&self, namespace: &str, network: &Network) {
+    pub fn count_user_dropped(&self, namespace: &str, network: &Network) {
         let project = get_project_id(namespace);
-        self.users_droped
+        self.users_dropped
             .with_label_values(&[&project, &network.to_string()])
             .inc();
     }
