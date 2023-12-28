@@ -21,6 +21,7 @@ resource "kubernetes_persistent_volume_claim" "state" {
 }
 
 resource "kubernetes_deployment_v1" "db_sync" {
+  wait_for_rollout = false
   metadata {
     labels = {
       salt    = var.salt
@@ -128,7 +129,7 @@ resource "kubernetes_deployment_v1" "db_sync" {
 
           env {
             name  = "POSTGRES_HOST"
-            value = local.postgres_host
+            value = var.postgres_instance_name
           }
 
           env {
