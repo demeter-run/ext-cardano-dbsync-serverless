@@ -1,92 +1,91 @@
-use tokio_postgres::{Client, NoTls, Row};
+use std::str::FromStr;
+
+use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
+use tokio_postgres::{NoTls, Row};
 
 use crate::Error;
 
+#[derive(Clone)]
 pub struct Postgres {
-    client: Client,
+    pool: Pool,
 }
 
 impl Postgres {
     pub async fn new(url: &str) -> Result<Self, Error> {
-        let (client, connection) = tokio_postgres::connect(url, NoTls).await?;
+        let mgr_config = ManagerConfig {
+            recycling_method: RecyclingMethod::Fast,
+        };
 
-        tokio::spawn(async move {
-            if let Err(e) = connection.await {
-                eprintln!("connection error: {}", e);
-            }
-        });
+        let config = tokio_postgres::Config::from_str(url)?;
 
-        Ok(Self { client })
+        let mgr = Manager::from_config(config, NoTls, mgr_config);
+        let pool = Pool::builder(mgr).build()?;
+
+        Ok(Self { pool })
     }
 
-    pub async fn user_create(&mut self, username: &str, password: &str) -> Result<(), Error> {
+    pub async fn create_user(&self, username: &str, password: &str) -> Result<(), Error> {
         let query_create_user = format!("create user \"{username}\" with password '{password}';");
-        let query_create_role =
-            format!("grant select on all tables in schema public to \"{username}\";");
+        let query_grant = format!("grant select on all tables in schema public to \"{username}\";");
 
-        let tx = self.client.transaction().await?;
+        let mut client = self.pool.get().await?;
+        let tx = client.transaction().await?;
 
         let user_stmt = tx.prepare(&query_create_user).await?;
         let user_result = tx.execute(&user_stmt, &[]).await;
         if let Err(err) = user_result {
             tx.rollback().await?;
-            return Err(Error::PgError(err));
+            return Err(Error::PgError(err.to_string()));
         }
 
-        let role_stmt = tx.prepare(&query_create_role).await?;
-        let role_result = tx.execute(&role_stmt, &[]).await;
-        if let Err(err) = role_result {
+        let grant_stmt = tx.prepare(&query_grant).await?;
+        let grant_result = tx.execute(&grant_stmt, &[]).await;
+        if let Err(err) = grant_result {
             tx.rollback().await?;
-            return Err(Error::PgError(err));
+            return Err(Error::PgError(err.to_string()));
         }
 
         tx.commit().await?;
         Ok(())
     }
 
-    pub async fn user_disable(&self, username: &str) -> Result<(), Error> {
-        let query_revoke_login = format!("alter user \"{username}\" with nologin;");
+    pub async fn drop_user(&self, username: &str) -> Result<(), Error> {
+        let query_reassign = format!("reassign owned by {username} to postgres;");
+        let query_revoke = format!("drop owned by {username};");
+        let query_drop_user = format!("drop user {username};");
 
-        let revoke_stmt = self.client.prepare(&query_revoke_login).await?;
-        self.client.execute(&revoke_stmt, &[]).await?;
+        let mut client = self.pool.get().await?;
+        let tx = client.transaction().await?;
 
-        Ok(())
-    }
-
-    pub async fn user_enable(&mut self, username: &str, password: &str) -> Result<(), Error> {
-        let query_grant_login = format!("alter user \"{username}\" with login;");
-        let query_alter_password = format!("alter user \"{username}\" with password '{password}';");
-
-        let tx = self.client.transaction().await?;
-
-        let login_stmt = tx.prepare(&query_grant_login).await?;
-        let login_result = tx.execute(&login_stmt, &[]).await;
-        if let Err(err) = login_result {
+        let reassign_stmt = tx.prepare(&query_reassign).await?;
+        let reassign_result = tx.execute(&reassign_stmt, &[]).await;
+        if let Err(err) = reassign_result {
             tx.rollback().await?;
-            return Err(Error::PgError(err));
+            return Err(Error::PgError(err.to_string()));
         }
 
-        let alter_stmt = tx.prepare(&query_alter_password).await?;
-        let alter_result = tx.execute(&alter_stmt, &[]).await;
-        if let Err(err) = alter_result {
+        let revoke_stmt = tx.prepare(&query_revoke).await?;
+        let revoke_result = tx.execute(&revoke_stmt, &[]).await;
+        if let Err(err) = revoke_result {
             tx.rollback().await?;
-            return Err(Error::PgError(err));
+            return Err(Error::PgError(err.to_string()));
+        }
+
+        let drop_user_stmt = tx.prepare(&query_drop_user).await?;
+        let drop_user_result = tx.execute(&drop_user_stmt, &[]).await;
+        if let Err(err) = drop_user_result {
+            tx.rollback().await?;
+            return Err(Error::PgError(err.to_string()));
         }
 
         tx.commit().await?;
         Ok(())
     }
 
-    pub async fn user_already_exists(&self, username: &str) -> Result<bool, Error> {
-        let query = "select rolname from pg_roles where rolname = $1;";
-
-        let user_stmt = self.client.prepare(query).await?;
-        let result = self.client.query_opt(&user_stmt, &[&username]).await?;
-
-        Ok(result.is_some())
-    }
-
-    pub async fn user_metrics(&self) -> Result<Option<Vec<UserStatements>>, Error> {
+    pub async fn find_metrics_by_user(
+        &self,
+        username: &str,
+    ) -> Result<Option<UserStatements>, Error> {
         let query_metrics = "SELECT
             usename,
             SUM(total_exec_time) AS total_exec_time
@@ -95,24 +94,20 @@ impl Postgres {
         inner join
             pg_catalog.pg_user on pg_catalog.pg_user.usesysid = userid
         where 
-            pg_catalog.pg_user.usename like '%.prj-%'
+            pg_catalog.pg_user.usename = $1
         group by
             usename;";
 
-        let stmt = self.client.prepare(query_metrics).await?;
-        let result = self.client.query(&stmt, &[]).await?;
+        let client = self.pool.get().await?;
 
-        if !result.is_empty() {
-            let user_statements: Vec<UserStatements> =
-                result.iter().map(|row| row.into()).collect();
-            return Ok(Some(user_statements));
-        }
+        let stmt = client.prepare(query_metrics).await?;
+        let result = client.query_opt(&stmt, &[&username]).await?;
 
-        Ok(None)
+        Ok(result.as_ref().map(|row| row.into()))
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UserStatements {
     pub usename: String,
     pub total_exec_time: f64,

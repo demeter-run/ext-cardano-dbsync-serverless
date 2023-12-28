@@ -1,17 +1,14 @@
-use kube::{Resource, ResourceExt};
+use kube::{api::ListParams, Api, Client, Resource, ResourceExt};
 use prometheus::{opts, IntCounterVec, Registry};
-use std::{sync::Arc, thread::sleep};
+use std::{collections::HashMap, sync::Arc, thread::sleep};
 use tracing::error;
 
-use crate::{
-    postgres::{Postgres, UserStatements},
-    Config, DbSyncPort, Error, Network, State,
-};
+use crate::{get_config, postgres::UserStatements, DbSyncPort, Error, Network, State};
 
 #[derive(Clone)]
 pub struct Metrics {
     pub users_created: IntCounterVec,
-    pub users_deactivated: IntCounterVec,
+    pub users_droped: IntCounterVec,
     pub reconcile_failures: IntCounterVec,
     pub metrics_failures: IntCounterVec,
     pub dcu: IntCounterVec,
@@ -21,25 +18,25 @@ impl Default for Metrics {
     fn default() -> Self {
         let users_created = IntCounterVec::new(
             opts!(
-                "crd_controller_users_created_total",
+                "dmtr_dbsync_users_created_total",
                 "total of users created in dbsync",
             ),
-            &["username"],
+            &["project", "network"],
         )
         .unwrap();
 
-        let users_deactivated = IntCounterVec::new(
+        let users_droped = IntCounterVec::new(
             opts!(
-                "crd_controller_users_deactivated_total",
-                "total of users deactivated in dbsync",
+                "dmtr_dbsync_users_droped_total",
+                "total of users droped in dbsync",
             ),
-            &["username"],
+            &["project", "network"],
         )
         .unwrap();
 
         let reconcile_failures = IntCounterVec::new(
             opts!(
-                "crd_controller_reconciliation_errors_total",
+                "dmtr_dbsync_reconciliation_errors_total",
                 "reconciliation errors",
             ),
             &["instance", "error"],
@@ -48,7 +45,7 @@ impl Default for Metrics {
 
         let metrics_failures = IntCounterVec::new(
             opts!(
-                "metrics_controller_errors_total",
+                "dmtr_dbsync_metrics_errors_total",
                 "errors to calculation metrics",
             ),
             &["error"],
@@ -63,7 +60,7 @@ impl Default for Metrics {
 
         Metrics {
             users_created,
-            users_deactivated,
+            users_droped,
             reconcile_failures,
             metrics_failures,
             dcu,
@@ -75,7 +72,7 @@ impl Metrics {
     pub fn register(self, registry: &Registry) -> Result<Self, prometheus::Error> {
         registry.register(Box::new(self.reconcile_failures.clone()))?;
         registry.register(Box::new(self.users_created.clone()))?;
-        registry.register(Box::new(self.users_deactivated.clone()))?;
+        registry.register(Box::new(self.users_droped.clone()))?;
         registry.register(Box::new(self.dcu.clone()))?;
         Ok(self)
     }
@@ -92,16 +89,22 @@ impl Metrics {
             .inc()
     }
 
-    pub fn count_user_created(&self, username: &str) {
-        self.users_created.with_label_values(&[username]).inc();
+    pub fn count_user_created(&self, namespace: &str, network: &Network) {
+        let project = get_project_id(namespace);
+        self.users_created
+            .with_label_values(&[&project, &network.to_string()])
+            .inc();
     }
 
-    pub fn count_user_deactivated(&self, username: &str) {
-        self.users_deactivated.with_label_values(&[username]).inc();
+    pub fn count_user_droped(&self, namespace: &str, network: &Network) {
+        let project = get_project_id(namespace);
+        self.users_droped
+            .with_label_values(&[&project, &network.to_string()])
+            .inc();
     }
 
-    pub fn count_dcu_consumed(&self, usename: &str, network: &Network, dcu: f64) {
-        let project = usename.split_once("prj-").unwrap().1;
+    pub fn count_dcu_consumed(&self, namespace: &str, network: &Network, dcu: f64) {
+        let project = get_project_id(namespace);
         let service = format!("{}-{}", DbSyncPort::kind(&()), network);
         let service_type = format!("{}.{}", DbSyncPort::plural(&()), DbSyncPort::group(&()));
         let tenancy = "proxy";
@@ -109,44 +112,37 @@ impl Metrics {
         let dcu: u64 = dcu.ceil() as u64;
 
         self.dcu
-            .with_label_values(&[project, &service, &service_type, tenancy])
+            .with_label_values(&[&project, &service, &service_type, tenancy])
             .inc_by(dcu);
     }
 }
 
-pub async fn run_metrics_collector(state: Arc<State>, config: Config) -> Result<(), Error> {
-    let mut network_state: Vec<(Network, String, f64, Option<Vec<UserStatements>>)> = vec![
-        (
-            Network::Mainnet,
-            config.db_url_mainnet,
-            config.dcu_per_second_mainnet,
-            None,
-        ),
-        (
-            Network::Preprod,
-            config.db_url_preprod,
-            config.dcu_per_second_preprod,
-            None,
-        ),
-        (
-            Network::Preview,
-            config.db_url_preview,
-            config.dcu_per_second_preview,
-            None,
-        ),
-    ];
+fn get_project_id(namespace: &str) -> String {
+    namespace.split_once("prj-").unwrap().1.into()
+}
+
+pub async fn run_metrics_collector(state: Arc<State>) -> Result<(), Error> {
+    let client = Client::try_default().await?;
+    let config = get_config();
+
+    let mut metrics_state: HashMap<Network, HashMap<String, UserStatements>> = HashMap::new();
 
     loop {
-        for (network, url, dcu_per_second, latest_execution) in network_state.iter_mut() {
-            let postgres_result = Postgres::new(url).await;
-            if let Err(err) = postgres_result {
-                error!("Error to connect postgres: {err}");
-                state.metrics.metrics_failure(&err);
-                continue;
-            }
-            let postgres = postgres_result.unwrap();
+        let crds_api = Api::<DbSyncPort>::all(client.clone());
+        let crds_result = crds_api.list(&ListParams::default()).await;
+        if let Err(err) = crds_result {
+            error!("Error to get k8s resources: {err}");
+            state.metrics.metrics_failure(&err.into());
+            continue;
+        }
+        let crds = crds_result.unwrap();
 
-            let user_statements_result = postgres.user_metrics().await;
+        for crd in crds.items.iter().filter(|i| i.status.is_some()) {
+            let status = crd.status.as_ref().unwrap();
+
+            let postgres = state.get_pg_by_network(&crd.spec.network);
+
+            let user_statements_result = postgres.find_metrics_by_user(&status.username).await;
             if let Err(err) = user_statements_result {
                 error!("Error get user statements: {err}");
                 state.metrics.metrics_failure(&err);
@@ -160,31 +156,36 @@ pub async fn run_metrics_collector(state: Arc<State>, config: Config) -> Result<
 
             let user_statements = user_statements.unwrap();
 
-            if let Some(latest_execution) = latest_execution {
-                for user_statement in user_statements.iter() {
-                    let latest_user_statement = latest_execution
-                        .iter()
-                        .find(|le| le.usename.eq(&user_statement.usename));
+            let latest_user_statement = metrics_state
+                .entry(crd.spec.network.clone())
+                .or_default()
+                .get(&user_statements.usename);
 
-                    let mut total_exec_time = user_statement.total_exec_time;
+            if let Some(latest_user_statement) = latest_user_statement {
+                let total_exec_time =
+                    user_statements.total_exec_time - latest_user_statement.total_exec_time;
 
-                    if let Some(latest_user_statement) = latest_user_statement {
-                        total_exec_time =
-                            user_statement.total_exec_time - latest_user_statement.total_exec_time;
-                    }
-
-                    if total_exec_time == 0.0 {
-                        continue;
-                    }
-
-                    let dcu = (total_exec_time / 1000.) * dcu_per_second as &f64;
-                    state
-                        .metrics
-                        .count_dcu_consumed(&user_statement.usename, network, dcu);
+                if total_exec_time == 0.0 {
+                    continue;
                 }
+
+                let dcu_per_second = match &crd.spec.network {
+                    Network::Mainnet => config.dcu_per_second_mainnet,
+                    Network::Preprod => config.dcu_per_second_preprod,
+                    Network::Preview => config.dcu_per_second_preview,
+                };
+
+                let dcu = (total_exec_time / 1000.) * dcu_per_second;
+                state
+                    .metrics
+                    .count_dcu_consumed(&crd.namespace().unwrap(), &crd.spec.network, dcu);
             }
 
-            *latest_execution = Some(user_statements);
+            metrics_state
+                .entry(crd.spec.network.clone())
+                .and_modify(|statements| {
+                    statements.insert(user_statements.usename.clone(), user_statements);
+                });
         }
 
         sleep(config.metrics_delay)
