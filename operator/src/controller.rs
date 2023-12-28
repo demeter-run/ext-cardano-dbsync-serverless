@@ -1,3 +1,4 @@
+use bech32::ToBase32;
 use futures::StreamExt;
 use kube::{
     api::{Patch, PatchParams},
@@ -13,6 +14,7 @@ use rand::distributions::{Alphanumeric, DistString};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sha3::{Digest, Sha3_256};
 use std::{sync::Arc, time::Duration};
 use tracing::error;
 
@@ -70,16 +72,13 @@ impl DbSyncPort {
         let name = self.name_any();
         let crds: Api<DbSyncPort> = Api::namespaced(client, &ns);
 
-        let username = format!("{name}.{ns}");
+        let username = gen_username_hash(&format!("{name}.{ns}")).await?;
         let password = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
 
         if !self.was_executed() {
-            match pg.user_already_exists(&username).await? {
-                true => pg.user_enable(&username, &password).await?,
-                false => pg.user_create(&username, &password).await?,
-            };
+            pg.create_user(&username, &password).await?;
 
-            let new_status = Patch::Apply(json!({
+            let status = Patch::Apply(json!({
                 "apiVersion": "demeter.run/v1alpha1",
                 "kind": "DbSyncPort",
                 "status": DbSyncPortStatus {
@@ -89,20 +88,23 @@ impl DbSyncPort {
             }));
 
             let ps = PatchParams::apply("cntrlr").force();
-            crds.patch_status(&name, &ps, &new_status)
+            crds.patch_status(&name, &ps, &status)
                 .await
                 .map_err(Error::KubeError)?;
 
             ctx.metrics.count_user_created(&username);
         };
 
-        Ok(Action::requeue(Duration::from_secs(5 * 60)))
+        Ok(Action::await_change())
     }
 
     async fn cleanup(&self, ctx: Arc<Context>, pg: &mut Postgres) -> Result<Action, Error> {
-        let username = self.status.as_ref().unwrap().username.clone();
-        pg.user_disable(&username).await?;
-        ctx.metrics.count_user_deactivated(&username);
+        if self.was_executed() {
+            let username = self.status.as_ref().unwrap().username.clone();
+            pg.drop_user(&username).await?;
+            ctx.metrics.count_user_deactivated(&username);
+        }
+
         Ok(Action::await_change())
     }
 }
@@ -133,6 +135,20 @@ fn error_policy(crd: Arc<DbSyncPort>, err: &Error, ctx: Arc<Context>) -> Action 
     error!("reconcile failed: {:?}", err);
     ctx.metrics.reconcile_failure(&crd, err);
     Action::requeue(Duration::from_secs(5))
+}
+
+async fn gen_username_hash(username: &str) -> Result<String, Error> {
+    let mut hasher = Sha3_256::new();
+    hasher.update(username);
+    let sha256_hash = hasher.finalize();
+
+    let bech32_hash = bech32::encode(
+        "dmtr_dbsync",
+        sha256_hash.to_base32(),
+        bech32::Variant::Bech32,
+    )?;
+
+    Ok(bech32_hash)
 }
 
 pub async fn run(state: Arc<State>, config: Config) -> Result<(), Error> {

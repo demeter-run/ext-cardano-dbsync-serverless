@@ -27,6 +27,12 @@ pub enum Error {
 
     #[error("Parse Float Error: {0}")]
     ParseFloatError(#[source] std::num::ParseFloatError),
+
+    #[error("Sha256 Error: {0}")]
+    Sha256Error(String),
+
+    #[error("Bech32 Error: {0}")]
+    Bech32Error(#[source] bech32::Error),
 }
 
 impl Error {
@@ -62,6 +68,11 @@ impl From<std::num::ParseIntError> for Error {
 impl From<std::num::ParseFloatError> for Error {
     fn from(value: std::num::ParseFloatError) -> Self {
         Error::ParseFloatError(value)
+    }
+}
+impl From<bech32::Error> for Error {
+    fn from(value: bech32::Error) -> Self {
+        Error::Bech32Error(value)
     }
 }
 
