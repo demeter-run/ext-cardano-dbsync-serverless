@@ -50,9 +50,9 @@ impl Postgres {
     }
 
     pub async fn drop_user(&self, username: &str) -> Result<(), Error> {
-        let query_reassign = format!("reassign owned by {username} to postgres;");
-        let query_revoke = format!("drop owned by {username};");
-        let query_drop_user = format!("drop user {username};");
+        let query_reassign = format!("reassign owned by \"{username}\" to postgres;");
+        let query_revoke = format!("drop owned by \"{username}\";");
+        let query_drop_user = format!("drop user \"{username}\";");
 
         let mut client = self.pool.get().await?;
         let tx = client.transaction().await?;
