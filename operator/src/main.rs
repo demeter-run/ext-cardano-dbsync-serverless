@@ -45,7 +45,12 @@ async fn main() -> io::Result<()> {
     })
     .bind(addr)?;
 
-    tokio::join!(controller, metrics_collector, server.run()).2?;
+    let signal = tokio::spawn(async {
+        tokio::signal::ctrl_c().await.expect("Fail to exit");
+        std::process::exit(0);
+    });
+
+    tokio::join!(controller, metrics_collector, server.run(), signal).2?;
 
     Ok(())
 }
