@@ -28,7 +28,7 @@ impl Default for Metrics {
         let users_droped = IntCounterVec::new(
             opts!(
                 "dmtr_dbsync_users_droped_total",
-                "total of users deactivated in dbsync",
+                "total of users droped in dbsync",
             ),
             &["project", "network"],
         )
@@ -96,7 +96,7 @@ impl Metrics {
             .inc();
     }
 
-    pub fn count_user_deactivated(&self, namespace: &str, network: &Network) {
+    pub fn count_user_droped(&self, namespace: &str, network: &Network) {
         let project = get_project_id(namespace);
         self.users_droped
             .with_label_values(&[&project, &network.to_string()])

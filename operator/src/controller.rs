@@ -90,7 +90,7 @@ impl DbSyncPort {
             pg.drop_user(&username).await?;
             state
                 .metrics
-                .count_user_deactivated(&ns, &self.spec.network);
+                .count_user_droped(&ns, &self.spec.network);
         }
 
         Ok(Action::await_change())
