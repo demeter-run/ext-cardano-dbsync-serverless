@@ -103,7 +103,7 @@ impl Postgres {
         let stmt = client.prepare(query_metrics).await?;
         let result = client.query_opt(&stmt, &[&username]).await?;
 
-        Ok(result.as_ref().and_then(|row| Some(row.into())))
+        Ok(result.as_ref().map(|row| row.into()))
     }
 }
 
