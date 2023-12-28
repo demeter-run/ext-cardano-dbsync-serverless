@@ -5,7 +5,7 @@ use dotenv::dotenv;
 use prometheus::{Encoder, TextEncoder};
 use std::{io, sync::Arc};
 
-use ext_cardano_dbsync::{controller, metrics as metrics_collector, Config, State};
+use ext_cardano_dbsync::{controller, metrics as metrics_collector, State};
 
 #[get("/metrics")]
 async fn metrics(c: Data<Arc<State>>, _req: HttpRequest) -> impl Responder {
@@ -25,14 +25,10 @@ async fn health(_: HttpRequest) -> impl Responder {
 async fn main() -> io::Result<()> {
     dotenv().ok();
 
-    let state = Arc::new(State::new());
-    let config = Config::try_new().unwrap();
+    let state = Arc::new(State::try_new().await?);
 
-    let controller = tokio::spawn(controller::run(state.clone(), config.clone()));
-    let metrics_collector = tokio::spawn(metrics_collector::run_metrics_collector(
-        state.clone(),
-        config.clone(),
-    ));
+    let controller = tokio::spawn(controller::run(state.clone()));
+    let metrics_collector = tokio::spawn(metrics_collector::run_metrics_collector(state.clone()));
 
     let addr = std::env::var("ADDR").unwrap_or("0.0.0.0:8080".into());
 

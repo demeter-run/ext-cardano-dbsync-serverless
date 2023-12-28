@@ -18,24 +18,9 @@ use sha3::{Digest, Sha3_256};
 use std::{sync::Arc, time::Duration};
 use tracing::error;
 
-use crate::{postgres::Postgres, Config, Error, Metrics, Network, State};
+use crate::{postgres::Postgres, Error, Network, State};
 
 pub static DB_SYNC_PORT_FINALIZER: &str = "dbsyncports.demeter.run";
-
-struct Context {
-    pub client: Client,
-    pub metrics: Metrics,
-    pub config: Config,
-}
-impl Context {
-    pub fn new(client: Client, metrics: Metrics, config: Config) -> Self {
-        Self {
-            client,
-            metrics,
-            config,
-        }
-    }
-}
 
 #[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema)]
 #[kube(
@@ -66,8 +51,8 @@ impl DbSyncPort {
             .unwrap_or(false)
     }
 
-    async fn reconcile(&self, ctx: Arc<Context>, pg: &mut Postgres) -> Result<Action, Error> {
-        let client = ctx.client.clone();
+    async fn reconcile(&self, state: Arc<State>, pg: &Postgres) -> Result<Action, Error> {
+        let client = state.kube_client.clone();
         let ns = self.namespace().unwrap();
         let name = self.name_any();
         let crds: Api<DbSyncPort> = Api::namespaced(client, &ns);
@@ -92,48 +77,45 @@ impl DbSyncPort {
                 .await
                 .map_err(Error::KubeError)?;
 
-            ctx.metrics.count_user_created(&username);
+            state.metrics.count_user_created(&ns, &self.spec.network);
         };
 
         Ok(Action::await_change())
     }
 
-    async fn cleanup(&self, ctx: Arc<Context>, pg: &mut Postgres) -> Result<Action, Error> {
+    async fn cleanup(&self, state: Arc<State>, pg: &Postgres) -> Result<Action, Error> {
         if self.was_executed() {
+            let ns = self.namespace().unwrap();
             let username = self.status.as_ref().unwrap().username.clone();
             pg.drop_user(&username).await?;
-            ctx.metrics.count_user_deactivated(&username);
+            state
+                .metrics
+                .count_user_deactivated(&ns, &self.spec.network);
         }
 
         Ok(Action::await_change())
     }
 }
 
-async fn reconcile(crd: Arc<DbSyncPort>, ctx: Arc<Context>) -> Result<Action, Error> {
-    let url = match crd.spec.network {
-        Network::Mainnet => &ctx.config.db_url_mainnet,
-        Network::Preprod => &ctx.config.db_url_preprod,
-        Network::Preview => &ctx.config.db_url_preview,
-    };
-
+async fn reconcile(crd: Arc<DbSyncPort>, state: Arc<State>) -> Result<Action, Error> {
     let ns = crd.namespace().unwrap();
-    let crds: Api<DbSyncPort> = Api::namespaced(ctx.client.clone(), &ns);
+    let crds: Api<DbSyncPort> = Api::namespaced(state.kube_client.clone(), &ns);
 
-    let mut postgres = Postgres::new(url).await?;
+    let postgres = state.get_pg_by_network(&crd.spec.network);
 
     finalizer(&crds, DB_SYNC_PORT_FINALIZER, crd, |event| async {
         match event {
-            Event::Apply(crd) => crd.reconcile(ctx.clone(), &mut postgres).await,
-            Event::Cleanup(crd) => crd.cleanup(ctx.clone(), &mut postgres).await,
+            Event::Apply(crd) => crd.reconcile(state.clone(), &postgres).await,
+            Event::Cleanup(crd) => crd.cleanup(state.clone(), &postgres).await,
         }
     })
     .await
     .map_err(|e| Error::FinalizerError(Box::new(e)))
 }
 
-fn error_policy(crd: Arc<DbSyncPort>, err: &Error, ctx: Arc<Context>) -> Action {
+fn error_policy(crd: Arc<DbSyncPort>, err: &Error, state: Arc<State>) -> Action {
     error!("reconcile failed: {:?}", err);
-    ctx.metrics.reconcile_failure(&crd, err);
+    state.metrics.reconcile_failure(&crd, err);
     Action::requeue(Duration::from_secs(5))
 }
 
@@ -148,18 +130,20 @@ async fn gen_username_hash(username: &str) -> Result<String, Error> {
         bech32::Variant::Bech32,
     )?;
 
-    Ok(bech32_hash)
+    let bech32_truncated: String = bech32_hash.chars().take(32).collect();
+
+    Ok(bech32_truncated)
 }
 
-pub async fn run(state: Arc<State>, config: Config) -> Result<(), Error> {
+pub async fn run(state: Arc<State>) -> Result<(), Error> {
     let client = Client::try_default().await?;
     let crds = Api::<DbSyncPort>::all(client.clone());
 
-    let ctx = Context::new(client, state.metrics.clone(), config);
+    // let ctx = Context::new(client, state.clone());
 
     Controller::new(crds, WatcherConfig::default().any_semantic())
         .shutdown_on_signal()
-        .run(reconcile, error_policy, Arc::new(ctx))
+        .run(reconcile, error_policy, state)
         .for_each(|_| futures::future::ready(()))
         .await;
 
