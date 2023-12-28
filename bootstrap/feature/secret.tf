@@ -12,7 +12,7 @@ resource "random_password" "dmtrro" {
 
 resource "kubernetes_secret" "postgres" {
   metadata {
-    name      = "postgres-${var.instance_name}"
+    name      = "postgres.${var.instance_name}"
     namespace = var.namespace
   }
   data = {
@@ -23,7 +23,7 @@ resource "kubernetes_secret" "postgres" {
 
 resource "kubernetes_secret" "dmtrro" {
   metadata {
-    name      = "dmtrro-${var.instance_name}"
+    name      = "dmtrro.${var.instance_name}"
     namespace = var.namespace
   }
   data = {
