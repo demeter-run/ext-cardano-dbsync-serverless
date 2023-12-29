@@ -22,17 +22,8 @@ pub enum Error {
     #[error("Finalizer Error: {0}")]
     FinalizerError(#[source] Box<kube::runtime::finalizer::Error<Error>>),
 
-    #[error("Env Error: {0}")]
-    EnvError(#[source] std::env::VarError),
-
     #[error("Prometheus Error: {0}")]
     PrometheusError(#[source] prometheus::Error),
-
-    #[error("Parse Int Error: {0}")]
-    ParseIntError(#[source] std::num::ParseIntError),
-
-    #[error("Parse Float Error: {0}")]
-    ParseFloatError(#[source] std::num::ParseFloatError),
 
     #[error("Sha256 Error: {0}")]
     Sha256Error(String),
@@ -73,24 +64,9 @@ impl From<kube::Error> for Error {
         Error::KubeError(value)
     }
 }
-impl From<std::env::VarError> for Error {
-    fn from(value: std::env::VarError) -> Self {
-        Error::EnvError(value)
-    }
-}
 impl From<prometheus::Error> for Error {
     fn from(value: prometheus::Error) -> Self {
         Error::PrometheusError(value)
-    }
-}
-impl From<std::num::ParseIntError> for Error {
-    fn from(value: std::num::ParseIntError) -> Self {
-        Error::ParseIntError(value)
-    }
-}
-impl From<std::num::ParseFloatError> for Error {
-    fn from(value: std::num::ParseFloatError) -> Self {
-        Error::ParseFloatError(value)
     }
 }
 impl From<bech32::Error> for Error {
