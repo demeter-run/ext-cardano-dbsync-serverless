@@ -50,7 +50,7 @@ async fn main() -> io::Result<()> {
         std::process::exit(0);
     });
 
-    tokio::join!(controller, metrics_collector, server.run(), signal).2?;
+    tokio::join!(server.run(), controller, metrics_collector, signal).0?;
 
     Ok(())
 }
