@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha3::{Digest, Sha3_256};
 use std::{sync::Arc, time::Duration};
-use tracing::error;
+use tracing::{error, info, instrument};
 
 use crate::{postgres::Postgres, Error, Network, State};
 
@@ -77,6 +77,7 @@ impl DbSyncPort {
                 .await
                 .map_err(Error::KubeError)?;
 
+            info!({ username }, "user created");
             state.metrics.count_user_created(&ns, &self.spec.network);
         };
 
@@ -88,9 +89,9 @@ impl DbSyncPort {
             let ns = self.namespace().unwrap();
             let username = self.status.as_ref().unwrap().username.clone();
             pg.drop_user(&username).await?;
-            state
-                .metrics
-                .count_user_dropped(&ns, &self.spec.network);
+
+            info!({ username }, "user dropped");
+            state.metrics.count_user_dropped(&ns, &self.spec.network);
         }
 
         Ok(Action::await_change())
@@ -113,9 +114,9 @@ async fn reconcile(crd: Arc<DbSyncPort>, state: Arc<State>) -> Result<Action, Er
     .map_err(|e| Error::FinalizerError(Box::new(e)))
 }
 
-fn error_policy(crd: Arc<DbSyncPort>, err: &Error, state: Arc<State>) -> Action {
-    error!("reconcile failed: {:?}", err);
-    state.metrics.reconcile_failure(&crd, err);
+fn error_policy(crd: Arc<DbSyncPort>, error: &Error, state: Arc<State>) -> Action {
+    error!(error = error.to_string(), "reconcile failed");
+    state.metrics.reconcile_failure(&crd, error);
     Action::requeue(Duration::from_secs(5))
 }
 
@@ -135,11 +136,11 @@ async fn gen_username_hash(username: &str) -> Result<String, Error> {
     Ok(bech32_truncated)
 }
 
+#[instrument("controller run", skip_all)]
 pub async fn run(state: Arc<State>) -> Result<(), Error> {
+    info!("listening crds running");
     let client = Client::try_default().await?;
     let crds = Api::<DbSyncPort>::all(client.clone());
-
-    // let ctx = Context::new(client, state.clone());
 
     Controller::new(crds, WatcherConfig::default().any_semantic())
         .shutdown_on_signal()

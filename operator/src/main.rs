@@ -4,6 +4,7 @@ use actix_web::{
 use dotenv::dotenv;
 use prometheus::{Encoder, TextEncoder};
 use std::{io, sync::Arc};
+use tracing::{info, Level};
 
 use ext_cardano_dbsync::{controller, metrics as metrics_collector, State};
 
@@ -25,6 +26,8 @@ async fn health(_: HttpRequest) -> impl Responder {
 async fn main() -> io::Result<()> {
     dotenv().ok();
 
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+
     let state = Arc::new(State::try_new().await?);
 
     let controller = tokio::spawn(controller::run(state.clone()));
@@ -39,14 +42,15 @@ async fn main() -> io::Result<()> {
             .service(health)
             .service(metrics)
     })
-    .bind(addr)?;
+    .bind(&addr)?;
+    info!({ addr }, "metrics server running");
 
     let signal = tokio::spawn(async {
-        tokio::signal::ctrl_c().await.expect("Fail to exit");
+        tokio::signal::ctrl_c().await.expect("fail to exit");
         std::process::exit(0);
     });
 
-    tokio::join!(controller, metrics_collector, server.run(), signal).2?;
+    tokio::join!(server.run(), controller, metrics_collector, signal).0?;
 
     Ok(())
 }

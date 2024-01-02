@@ -1,7 +1,7 @@
 use kube::{api::ListParams, Api, Client, Resource, ResourceExt};
 use prometheus::{opts, IntCounterVec, Registry};
 use std::{collections::HashMap, sync::Arc, thread::sleep};
-use tracing::error;
+use tracing::{error, info, instrument};
 
 use crate::{get_config, postgres::UserStatements, DbSyncPort, Error, Network, State};
 
@@ -121,7 +121,10 @@ fn get_project_id(namespace: &str) -> String {
     namespace.split_once("prj-").unwrap().1.into()
 }
 
+#[instrument("metrics collector run", skip_all)]
 pub async fn run_metrics_collector(state: Arc<State>) -> Result<(), Error> {
+    info!("collecting metrics running");
+
     let client = Client::try_default().await?;
     let config = get_config();
 
@@ -130,9 +133,9 @@ pub async fn run_metrics_collector(state: Arc<State>) -> Result<(), Error> {
     loop {
         let crds_api = Api::<DbSyncPort>::all(client.clone());
         let crds_result = crds_api.list(&ListParams::default()).await;
-        if let Err(err) = crds_result {
-            error!("Error to get k8s resources: {err}");
-            state.metrics.metrics_failure(&err.into());
+        if let Err(error) = crds_result {
+            error!(error = error.to_string(), "error to get k8s resources");
+            state.metrics.metrics_failure(&error.into());
             continue;
         }
         let crds = crds_result.unwrap();
@@ -143,9 +146,9 @@ pub async fn run_metrics_collector(state: Arc<State>) -> Result<(), Error> {
             let postgres = state.get_pg_by_network(&crd.spec.network);
 
             let user_statements_result = postgres.find_metrics_by_user(&status.username).await;
-            if let Err(err) = user_statements_result {
-                error!("Error get user statements: {err}");
-                state.metrics.metrics_failure(&err);
+            if let Err(error) = user_statements_result {
+                error!(error = error.to_string(), "error get user statements");
+                state.metrics.metrics_failure(&error);
                 continue;
             }
 
