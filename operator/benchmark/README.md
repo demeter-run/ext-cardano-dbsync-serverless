@@ -32,6 +32,8 @@ docker run --env-file .env --network host --volume ./bench.sql:/bench.sql pgbenc
 
 - `-c` concurrences users
 - `-T` execution time(seconds)
+- `-t` number of transactions each client runs. Default is 10.
+- `-j` number of worker threads
 - `-n` enable for the custom scripts
 - `-f` script path
 
