@@ -1,7 +1,7 @@
 use bech32::ToBase32;
 use futures::StreamExt;
 use kube::{
-    api::{Patch, PatchParams},
+    api::{ListParams, Patch, PatchParams},
     runtime::{
         controller::Action,
         finalizer::{finalizer, Event},
@@ -137,16 +137,23 @@ async fn gen_username_hash(username: &str) -> Result<String, Error> {
 }
 
 #[instrument("controller run", skip_all)]
-pub async fn run(state: Arc<State>) -> Result<(), Error> {
+pub async fn run(state: Arc<State>) {
     info!("listening crds running");
-    let client = Client::try_default().await?;
+
+    let client = Client::try_default()
+        .await
+        .expect("failed to create kube client");
+
     let crds = Api::<DbSyncPort>::all(client.clone());
+    if let Err(e) = crds.list(&ListParams::default().limit(1)).await {
+        error!("CRD is not queryable; {e:?}. Is the CRD installed?");
+        std::process::exit(1);
+    }
 
     Controller::new(crds, WatcherConfig::default().any_semantic())
         .shutdown_on_signal()
         .run(reconcile, error_policy, state)
+        .filter_map(|x| async move { std::result::Result::ok(x) })
         .for_each(|_| futures::future::ready(()))
         .await;
-
-    Ok(())
 }

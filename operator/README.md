@@ -1,6 +1,6 @@
 # Ext Cardano DB Sync
 
-This project is a Kubernetes custom controller to create users on dbsync's Postgres. This controller defines a new CRD DbSyncPort on Kubernetes and when the new users enable the External Dbsync, the Demiter will generate a manifest with the kind DbSyncPort and the controller will be watching for creating a new user on Postgres.
+This project is a Kubernetes custom controller to create users on dbsync's Postgres. This controller defines a new CRD DbSyncPort on Kubernetes and when the new users enable the External Dbsync, the Demeter will generate a manifest with the kind DbSyncPort and the controller will be watching for creating a new user on Postgres.
 
 > [!IMPORTANT]  
 > The metrics collector uses the `pg_stat_statements` extension enabled on Postgres. To enable that extension follow the steps bellow.

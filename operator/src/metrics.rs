@@ -1,6 +1,6 @@
 use kube::{api::ListParams, Api, Client, Resource, ResourceExt};
 use prometheus::{opts, IntCounterVec, Registry};
-use std::{collections::HashMap, sync::Arc, thread::sleep};
+use std::{collections::HashMap, sync::Arc};
 use tracing::{error, info, instrument};
 
 use crate::{get_config, postgres::UserStatements, DbSyncPort, Error, Network, State};
@@ -122,75 +122,82 @@ fn get_project_id(namespace: &str) -> String {
 }
 
 #[instrument("metrics collector run", skip_all)]
-pub async fn run_metrics_collector(state: Arc<State>) -> Result<(), Error> {
-    info!("collecting metrics running");
+pub async fn run_metrics_collector(state: Arc<State>) {
+    tokio::spawn(async move {
+        info!("collecting metrics running");
 
-    let client = Client::try_default().await?;
-    let config = get_config();
+        let client = Client::try_default()
+            .await
+            .expect("failed to create kube client");
 
-    let mut metrics_state: HashMap<Network, HashMap<String, UserStatements>> = HashMap::new();
+        let config = get_config();
 
-    loop {
-        let crds_api = Api::<DbSyncPort>::all(client.clone());
-        let crds_result = crds_api.list(&ListParams::default()).await;
-        if let Err(error) = crds_result {
-            error!(error = error.to_string(), "error to get k8s resources");
-            state.metrics.metrics_failure(&error.into());
-            continue;
-        }
-        let crds = crds_result.unwrap();
+        let mut metrics_state: HashMap<Network, HashMap<String, UserStatements>> = HashMap::new();
 
-        for crd in crds.items.iter().filter(|i| i.status.is_some()) {
-            let status = crd.status.as_ref().unwrap();
-
-            let postgres = state.get_pg_by_network(&crd.spec.network);
-
-            let user_statements_result = postgres.find_metrics_by_user(&status.username).await;
-            if let Err(error) = user_statements_result {
-                error!(error = error.to_string(), "error get user statements");
-                state.metrics.metrics_failure(&error);
+        loop {
+            let crds_api = Api::<DbSyncPort>::all(client.clone());
+            let crds_result = crds_api.list(&ListParams::default()).await;
+            if let Err(error) = crds_result {
+                error!(error = error.to_string(), "error to get k8s resources");
+                state.metrics.metrics_failure(&error.into());
                 continue;
             }
+            let crds = crds_result.unwrap();
 
-            let user_statements = user_statements_result.unwrap();
-            if user_statements.is_none() {
-                continue;
-            }
+            for crd in crds.items.iter().filter(|i| i.status.is_some()) {
+                let status = crd.status.as_ref().unwrap();
 
-            let user_statements = user_statements.unwrap();
+                let postgres = state.get_pg_by_network(&crd.spec.network);
 
-            let latest_user_statement = metrics_state
-                .entry(crd.spec.network.clone())
-                .or_default()
-                .get(&user_statements.usename);
-
-            if let Some(latest_user_statement) = latest_user_statement {
-                let total_exec_time =
-                    user_statements.total_exec_time - latest_user_statement.total_exec_time;
-
-                if total_exec_time == 0.0 {
+                let user_statements_result = postgres.find_metrics_by_user(&status.username).await;
+                if let Err(error) = user_statements_result {
+                    error!(error = error.to_string(), "error get user statements");
+                    state.metrics.metrics_failure(&error);
                     continue;
                 }
 
-                let dcu_per_second = match &crd.spec.network {
-                    Network::Mainnet => config.dcu_per_second_mainnet,
-                    Network::Preprod => config.dcu_per_second_preprod,
-                    Network::Preview => config.dcu_per_second_preview,
-                };
+                let user_statements = user_statements_result.unwrap();
+                if user_statements.is_none() {
+                    continue;
+                }
 
-                let dcu = (total_exec_time / 1000.) * dcu_per_second;
-                state
-                    .metrics
-                    .count_dcu_consumed(&crd.namespace().unwrap(), &crd.spec.network, dcu);
+                let user_statements = user_statements.unwrap();
+
+                let latest_user_statement = metrics_state
+                    .entry(crd.spec.network.clone())
+                    .or_default()
+                    .get(&user_statements.usename);
+
+                if let Some(latest_user_statement) = latest_user_statement {
+                    let total_exec_time =
+                        user_statements.total_exec_time - latest_user_statement.total_exec_time;
+
+                    if total_exec_time == 0.0 {
+                        continue;
+                    }
+
+                    let dcu_per_second = match &crd.spec.network {
+                        Network::Mainnet => config.dcu_per_second_mainnet,
+                        Network::Preprod => config.dcu_per_second_preprod,
+                        Network::Preview => config.dcu_per_second_preview,
+                    };
+
+                    let dcu = (total_exec_time / 1000.) * dcu_per_second;
+                    state.metrics.count_dcu_consumed(
+                        &crd.namespace().unwrap(),
+                        &crd.spec.network,
+                        dcu,
+                    );
+                }
+
+                metrics_state
+                    .entry(crd.spec.network.clone())
+                    .and_modify(|statements| {
+                        statements.insert(user_statements.usename.clone(), user_statements);
+                    });
             }
 
-            metrics_state
-                .entry(crd.spec.network.clone())
-                .and_modify(|statements| {
-                    statements.insert(user_statements.usename.clone(), user_statements);
-                });
+            tokio::time::sleep(config.metrics_delay).await;
         }
-
-        sleep(config.metrics_delay)
-    }
+    });
 }
