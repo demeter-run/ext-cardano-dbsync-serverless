@@ -1,0 +1,17 @@
+PARAMS:
+concurrences users = 20
+execution time(seconds) = 300
+
+RESULT:
+transaction type: /bench.sql
+scaling factor: 1
+query mode: simple
+number of clients: 20
+number of threads: 20
+maximum number of tries: 1
+duration: 300 s
+number of transactions actually processed: 2928
+number of failed transactions: 0 (0.000%)
+latency average = 2037.386 ms
+initial connection time = 3583.825 ms
+tps = 9.816502 (without initial connection time)
