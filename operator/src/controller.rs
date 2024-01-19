@@ -68,16 +68,6 @@ impl DbSyncPort {
             .clone()
             .unwrap_or(DbSyncPortStatus::try_new(&name, &ns).await?);
 
-        let tasks = future::join_all(
-            pg_connections
-                .iter()
-                .map(|pg| pg.create_user(&status.username, &status.password)),
-        )
-        .await;
-        if tasks.iter().any(Result::is_err) {
-            return Err(Error::PgError("fail to create user".into()));
-        }
-
         if self.status.is_none() {
             let payload = json!({ "status": status });
 
@@ -89,6 +79,17 @@ impl DbSyncPort {
 
             info!({ status.username }, "user created");
             state.metrics.count_user_created(&ns, &self.spec.network);
+        }
+
+        let tasks = future::join_all(
+            pg_connections
+                .iter()
+                .map(|pg| pg.create_user(&status.username, &status.password)),
+        )
+        .await;
+
+        if tasks.iter().any(Result::is_err) {
+            return Err(Error::PgError("fail to create user".into()));
         }
 
         Ok(Action::await_change())
