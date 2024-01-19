@@ -1,9 +1,14 @@
+use futures::future;
 use kube::{api::ListParams, Api, Client, Resource, ResourceExt};
 use prometheus::{opts, IntCounterVec, Registry};
 use std::{collections::HashMap, sync::Arc};
 use tracing::{error, info, instrument};
 
-use crate::{get_config, postgres::UserStatements, DbSyncPort, Error, Network, State};
+use crate::{
+    get_config,
+    postgres::{Postgres, UserStatements},
+    DbSyncPort, Error, State,
+};
 
 #[derive(Clone)]
 pub struct Metrics {
@@ -89,21 +94,21 @@ impl Metrics {
             .inc()
     }
 
-    pub fn count_user_created(&self, namespace: &str, network: &Network) {
+    pub fn count_user_created(&self, namespace: &str, network: &str) {
         let project = get_project_id(namespace);
         self.users_created
-            .with_label_values(&[&project, &network.to_string()])
+            .with_label_values(&[&project, network])
             .inc();
     }
 
-    pub fn count_user_dropped(&self, namespace: &str, network: &Network) {
+    pub fn count_user_dropped(&self, namespace: &str, network: &str) {
         let project = get_project_id(namespace);
         self.users_dropped
-            .with_label_values(&[&project, &network.to_string()])
+            .with_label_values(&[&project, network])
             .inc();
     }
 
-    pub fn count_dcu_consumed(&self, namespace: &str, network: &Network, dcu: f64) {
+    pub fn count_dcu_consumed(&self, namespace: &str, network: &str, dcu: f64) {
         let project = get_project_id(namespace);
         let service = format!("{}-{}", DbSyncPort::kind(&()), network);
         let service_type = format!("{}.{}", DbSyncPort::plural(&()), DbSyncPort::group(&()));
@@ -132,10 +137,11 @@ pub async fn run_metrics_collector(state: Arc<State>) {
 
         let config = get_config();
 
-        let mut metrics_state: HashMap<Network, HashMap<String, UserStatements>> = HashMap::new();
+        let mut metrics_state: HashMap<String, HashMap<String, UserStatements>> = HashMap::new();
+
+        let crds_api = Api::<DbSyncPort>::all(client.clone());
 
         loop {
-            let crds_api = Api::<DbSyncPort>::all(client.clone());
             let crds_result = crds_api.list(&ListParams::default()).await;
             if let Err(error) = crds_result {
                 error!(error = error.to_string(), "error to get k8s resources");
@@ -147,9 +153,15 @@ pub async fn run_metrics_collector(state: Arc<State>) {
             for crd in crds.items.iter().filter(|i| i.status.is_some()) {
                 let status = crd.status.as_ref().unwrap();
 
-                let postgres = state.get_pg_by_network(&crd.spec.network);
+                let pg_connections_result = state.get_pg_by_network(&crd.spec.network);
+                if let Err(error) = pg_connections_result {
+                    error!(error = error.to_string());
+                    state.metrics.metrics_failure(&error);
+                    continue;
+                }
 
-                let user_statements_result = postgres.find_metrics_by_user(&status.username).await;
+                let user_statements_result =
+                    get_user_statements(&status.username, pg_connections_result.unwrap()).await;
                 if let Err(error) = user_statements_result {
                     error!(error = error.to_string(), "error get user statements");
                     state.metrics.metrics_failure(&error);
@@ -157,11 +169,6 @@ pub async fn run_metrics_collector(state: Arc<State>) {
                 }
 
                 let user_statements = user_statements_result.unwrap();
-                if user_statements.is_none() {
-                    continue;
-                }
-
-                let user_statements = user_statements.unwrap();
 
                 let latest_user_statement = metrics_state
                     .entry(crd.spec.network.clone())
@@ -176,11 +183,18 @@ pub async fn run_metrics_collector(state: Arc<State>) {
                         continue;
                     }
 
-                    let dcu_per_second = match &crd.spec.network {
-                        Network::Mainnet => config.dcu_per_second_mainnet,
-                        Network::Preprod => config.dcu_per_second_preprod,
-                        Network::Preview => config.dcu_per_second_preview,
-                    };
+                    let dcu_per_second = config.dcu_per_second.get(&crd.spec.network);
+                    if dcu_per_second.is_none() {
+                        let error = Error::ConfigError(format!(
+                            "dcu_per_second not configured to {} network",
+                            &crd.spec.network
+                        ));
+                        error!(error = error.to_string());
+                        state.metrics.metrics_failure(&error);
+                        continue;
+                    }
+
+                    let dcu_per_second = dcu_per_second.unwrap();
 
                     let dcu = (total_exec_time / 1000.) * dcu_per_second;
                     state.metrics.count_dcu_consumed(
@@ -200,4 +214,33 @@ pub async fn run_metrics_collector(state: Arc<State>) {
             tokio::time::sleep(config.metrics_delay).await;
         }
     });
+}
+
+async fn get_user_statements(
+    username: &str,
+    pg_connections: &[Postgres],
+) -> Result<UserStatements, Error> {
+    let tasks = future::join_all(
+        pg_connections
+            .iter()
+            .map(|pg| pg.find_metrics_by_user(username)),
+    )
+    .await;
+
+    let mut user_statements_all_host = UserStatements {
+        usename: username.into(),
+        total_exec_time: 0.,
+    };
+
+    for user_statements_by_host_result in tasks.into_iter() {
+        let user_statements_by_host = user_statements_by_host_result?;
+        if user_statements_by_host.is_none() {
+            continue;
+        }
+
+        let user_statements_by_host = user_statements_by_host.unwrap();
+        user_statements_all_host.total_exec_time += user_statements_by_host.total_exec_time;
+    }
+
+    Ok(user_statements_all_host)
 }

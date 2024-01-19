@@ -1,13 +1,11 @@
 use kube::Client;
 use postgres::Postgres;
 use prometheus::Registry;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::error;
 
 use std::{
-    fmt::Display,
+    collections::HashMap,
     io::{self, ErrorKind},
 };
 
@@ -30,6 +28,9 @@ pub enum Error {
 
     #[error("Bech32 Error: {0}")]
     Bech32Error(#[source] bech32::Error),
+
+    #[error("Config Error: {0}")]
+    ConfigError(String),
 }
 
 impl Error {
@@ -79,9 +80,7 @@ impl From<bech32::Error> for Error {
 pub struct State {
     registry: Registry,
     pub metrics: Metrics,
-    pub pg_mainnet: Postgres,
-    pub pg_preprod: Postgres,
-    pub pg_preview: Postgres,
+    pub pg_connections: HashMap<String, Vec<Postgres>>,
     pub kube_client: Client,
 }
 impl State {
@@ -91,18 +90,23 @@ impl State {
         let registry = Registry::default();
         let metrics = Metrics::default().register(&registry).unwrap();
 
-        let pg_mainnet = Postgres::new(&config.db_url_mainnet).await?;
-        let pg_preprod = Postgres::new(&config.db_url_preprod).await?;
-        let pg_preview = Postgres::new(&config.db_url_preview).await?;
+        let mut pg_connections: HashMap<String, Vec<Postgres>> = HashMap::new();
+        for (network, db_name) in config.db_names.iter() {
+            let mut connections: Vec<Postgres> = Vec::new();
+            for url in config.db_urls.iter() {
+                let connection = Postgres::try_new(&format!("{}/{}", url, db_name)).await?;
+                connections.push(connection);
+            }
+
+            pg_connections.insert(network.clone(), connections);
+        }
 
         let kube_client = Client::try_default().await?;
 
         Ok(Self {
             registry,
             metrics,
-            pg_mainnet,
-            pg_preprod,
-            pg_preview,
+            pg_connections,
             kube_client,
         })
     }
@@ -111,31 +115,14 @@ impl State {
         self.registry.gather()
     }
 
-    pub fn get_pg_by_network(&self, network: &Network) -> Postgres {
-        match network {
-            Network::Mainnet => self.pg_mainnet.clone(),
-            Network::Preprod => self.pg_preprod.clone(),
-            Network::Preview => self.pg_preview.clone(),
+    pub fn get_pg_by_network(&self, network: &str) -> Result<&Vec<Postgres>, Error> {
+        if let Some(connections) = self.pg_connections.get(network) {
+            return Ok(connections);
         }
-    }
-}
 
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, PartialEq, Eq, Hash)]
-pub enum Network {
-    #[serde(rename = "mainnet")]
-    Mainnet,
-    #[serde(rename = "preprod")]
-    Preprod,
-    #[serde(rename = "preview")]
-    Preview,
-}
-impl Display for Network {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Network::Mainnet => write!(f, "mainnet"),
-            Network::Preprod => write!(f, "preprod"),
-            Network::Preview => write!(f, "preview"),
-        }
+        Err(Error::ConfigError(format!(
+            "postgres not configured to {network}"
+        )))
     }
 }
 

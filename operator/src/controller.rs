@@ -1,5 +1,5 @@
 use bech32::ToBase32;
-use futures::StreamExt;
+use futures::{future, StreamExt};
 use kube::{
     api::{ListParams, Patch, PatchParams},
     runtime::{
@@ -18,7 +18,7 @@ use sha3::{Digest, Sha3_256};
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, instrument};
 
-use crate::{postgres::Postgres, Error, Network, State};
+use crate::{postgres::Postgres, Error, State};
 
 pub static DB_SYNC_PORT_FINALIZER: &str = "dbsyncports.demeter.run";
 
@@ -36,59 +36,78 @@ pub static DB_SYNC_PORT_FINALIZER: &str = "dbsyncports.demeter.run";
         {"name": "Password", "jsonPath": ".status.password", "type": "string"}
     "#)]
 pub struct DbSyncPortSpec {
-    pub network: Network,
+    pub network: String,
 }
-#[derive(Deserialize, Serialize, Clone, Default, Debug, JsonSchema)]
+#[derive(Deserialize, Serialize, Clone, Debug, JsonSchema)]
 pub struct DbSyncPortStatus {
     pub username: String,
     pub password: String,
 }
-impl DbSyncPort {
-    fn was_executed(&self) -> bool {
-        self.status
-            .as_ref()
-            .map(|s| !s.username.is_empty())
-            .unwrap_or(false)
-    }
+impl DbSyncPortStatus {
+    pub async fn try_new(name: &str, ns: &str) -> Result<Self, Error> {
+        let username = gen_username_hash(&format!("{name}.{ns}")).await?;
+        let password = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
 
-    async fn reconcile(&self, state: Arc<State>, pg: &Postgres) -> Result<Action, Error> {
+        Ok(Self { username, password })
+    }
+}
+
+impl DbSyncPort {
+    async fn reconcile(
+        &self,
+        state: Arc<State>,
+        pg_connections: &Vec<Postgres>,
+    ) -> Result<Action, Error> {
         let client = state.kube_client.clone();
         let ns = self.namespace().unwrap();
         let name = self.name_any();
         let crds: Api<DbSyncPort> = Api::namespaced(client, &ns);
 
-        let username = gen_username_hash(&format!("{name}.{ns}")).await?;
-        let password = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
+        let status = self
+            .status
+            .clone()
+            .unwrap_or(DbSyncPortStatus::try_new(&name, &ns).await?);
 
-        if !self.was_executed() {
-            pg.create_user(&username, &password).await?;
+        let tasks = future::join_all(
+            pg_connections
+                .iter()
+                .map(|pg| pg.create_user(&status.username, &status.password)),
+        )
+        .await;
+        if tasks.iter().any(Result::is_err) {
+            return Err(Error::PgError("fail to create user".into()));
+        }
 
-            let status = Patch::Apply(json!({
-                "apiVersion": "demeter.run/v1alpha1",
-                "kind": "DbSyncPort",
-                "status": DbSyncPortStatus {
-                    username: username.clone(),
-                    password: password.clone()
-                }
-            }));
+        if self.status.is_none() {
+            let payload = json!({ "status": status });
 
-            let ps = PatchParams::apply("cntrlr").force();
-            crds.patch_status(&name, &ps, &status)
-                .await
-                .map_err(Error::KubeError)?;
+            let patch_params = PatchParams::default();
+            let patch_payload = Patch::Merge(payload);
 
-            info!({ username }, "user created");
+            crds.patch_status(&name, &patch_params, &patch_payload)
+                .await?;
+
+            info!({ status.username }, "user created");
             state.metrics.count_user_created(&ns, &self.spec.network);
-        };
+        }
 
         Ok(Action::await_change())
     }
 
-    async fn cleanup(&self, state: Arc<State>, pg: &Postgres) -> Result<Action, Error> {
-        if self.was_executed() {
+    async fn cleanup(
+        &self,
+        state: Arc<State>,
+        pg_connections: &[Postgres],
+    ) -> Result<Action, Error> {
+        if self.status.is_some() {
             let ns = self.namespace().unwrap();
             let username = self.status.as_ref().unwrap().username.clone();
-            pg.drop_user(&username).await?;
+
+            let tasks =
+                future::join_all(pg_connections.iter().map(|pg| pg.drop_user(&username))).await;
+            if tasks.iter().any(Result::is_err) {
+                return Err(Error::PgError("fail to drop user".into()));
+            }
 
             info!({ username }, "user dropped");
             state.metrics.count_user_dropped(&ns, &self.spec.network);
@@ -102,12 +121,12 @@ async fn reconcile(crd: Arc<DbSyncPort>, state: Arc<State>) -> Result<Action, Er
     let ns = crd.namespace().unwrap();
     let crds: Api<DbSyncPort> = Api::namespaced(state.kube_client.clone(), &ns);
 
-    let postgres = state.get_pg_by_network(&crd.spec.network);
+    let pg_connections = state.get_pg_by_network(&crd.spec.network)?;
 
     finalizer(&crds, DB_SYNC_PORT_FINALIZER, crd, |event| async {
         match event {
-            Event::Apply(crd) => crd.reconcile(state.clone(), &postgres).await,
-            Event::Cleanup(crd) => crd.cleanup(state.clone(), &postgres).await,
+            Event::Apply(crd) => crd.reconcile(state.clone(), pg_connections).await,
+            Event::Cleanup(crd) => crd.cleanup(state.clone(), pg_connections).await,
         }
     })
     .await
