@@ -30,10 +30,6 @@ spec:
           spec:
             properties:
               network:
-                enum:
-                - mainnet
-                - preprod
-                - preview
                 type: string
             required:
             - network
