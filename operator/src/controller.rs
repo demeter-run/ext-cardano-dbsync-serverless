@@ -56,7 +56,7 @@ impl DbSyncPort {
     async fn reconcile(
         &self,
         state: Arc<State>,
-        pg_connections: &Vec<Postgres>,
+        pg_connections: &[Postgres],
     ) -> Result<Action, Error> {
         let client = state.kube_client.clone();
         let ns = self.namespace().unwrap();
