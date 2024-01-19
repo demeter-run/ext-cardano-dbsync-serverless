@@ -163,20 +163,14 @@ spec:
           env:
             - name: ADDR
               value: "0.0.0.0:80"
-            - name: DB_URL_MAINNET
-              value: "postgres://user:password@app.prj-ci-test.svc.cluster.local:5432/postgres?sslmode=disable"
-            - name: DB_URL_PREPROD
-              value: "postgres://user:password@app.prj-ci-test.svc.cluster.local:5432/postgres?sslmode=disable"
-            - name: DB_URL_PREVIEW
-              value: "postgres://user:password@app.prj-ci-test.svc.cluster.local:5432/postgres?sslmode=disable"
+            - name: DB_URLS
+              value: "postgres://user:password@app.prj-ci-test.svc.cluster.local:5432"
+            - name: DB_NAMES
+              value: "preview=postgres"
+            - name: DCU_PER_SECOND
+              value: "preview=5"
             - name: METRICS_DELAY
               value: "30"
-            - name: DCU_PER_SECOND_MAINNET
-              value: "10"
-            - name: DCU_PER_SECOND_PREPROD
-              value: "10"
-            - name: DCU_PER_SECOND_PREVIEW
-              value: "10"
             - name: RUST_LOG
               value: info,kube=debug,controller=debug
 ---

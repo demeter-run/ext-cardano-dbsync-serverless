@@ -11,7 +11,7 @@ pub struct Postgres {
 }
 
 impl Postgres {
-    pub async fn new(url: &str) -> Result<Self, Error> {
+    pub async fn try_new(url: &str) -> Result<Self, Error> {
         let mgr_config = ManagerConfig {
             recycling_method: RecyclingMethod::Fast,
         };
@@ -25,6 +25,10 @@ impl Postgres {
     }
 
     pub async fn create_user(&self, username: &str, password: &str) -> Result<(), Error> {
+        if self.user_exist(username).await? {
+            return Ok(());
+        }
+
         let query_create_user = format!("create user \"{username}\" with password '{password}';");
         let query_grant = format!("grant select on all tables in schema public to \"{username}\";");
 
@@ -50,6 +54,10 @@ impl Postgres {
     }
 
     pub async fn drop_user(&self, username: &str) -> Result<(), Error> {
+        if !self.user_exist(username).await? {
+            return Ok(());
+        }
+
         let query_reassign = format!("reassign owned by \"{username}\" to postgres;");
         let query_revoke = format!("drop owned by \"{username}\";");
         let query_drop_user = format!("drop user \"{username}\";");
@@ -82,14 +90,25 @@ impl Postgres {
         Ok(())
     }
 
+    async fn user_exist(&self, username: &str) -> Result<bool, Error> {
+        let query = "select usesysid from pg_user where pg_user.usename = $1;";
+
+        let client = self.pool.get().await?;
+
+        let stmt = client.prepare(query).await?;
+        let result = client.query_opt(&stmt, &[&username]).await?;
+
+        Ok(result.is_some())
+    }
+
     pub async fn find_metrics_by_user(
         &self,
         username: &str,
     ) -> Result<Option<UserStatements>, Error> {
-        let query_metrics = "SELECT
+        let query_metrics = "select
             usename,
-            SUM(total_exec_time) AS total_exec_time
-        FROM
+            sum(total_exec_time) as total_exec_time
+        from
             pg_stat_statements
         inner join
             pg_catalog.pg_user on pg_catalog.pg_user.usesysid = userid
