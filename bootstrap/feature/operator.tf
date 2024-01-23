@@ -41,21 +41,6 @@ resource "kubernetes_deployment_v1" "operator" {
           }
 
           env {
-            name  = "DCU_PER_SECOND_MAINNET"
-            value = var.dcu_per_second["mainnet"]
-          }
-
-          env {
-            name  = "DCU_PER_SECOND_PREPROD"
-            value = var.dcu_per_second["preprod"]
-          }
-
-          env {
-            name  = "DCU_PER_SECOND_PREVIEW"
-            value = var.dcu_per_second["preview"]
-          }
-
-          env {
             name = "ADDR"
             value = "0.0.0.0:5000"
           }
@@ -71,18 +56,18 @@ resource "kubernetes_deployment_v1" "operator" {
           }
 
           env {
-            name = "DB_URL_MAINNET"
-            value = "postgres://postgres:$(POSTGRES_PASSWORD)@${var.postgres_host}:5432/dbsync-mainnet"
+            name = "DCU_PER_SECOND"
+            value = "mainnet=${var.dcu_per_second["mainnet"]},preprod=${var.dcu_per_second["preprod"]},preview=${var.dcu_per_second["preview"]}"
           }
 
           env {
-            name = "DB_URL_PREPROD"
-            value = "postgres://postgres:$(POSTGRES_PASSWORD)@${var.postgres_host}:5432/dbsync-preprod"
+            name = "DB_URLS"
+            value = "postgres://postgres:$(POSTGRES_PASSWORD)@${var.postgres_host_1}:5432,postgres://postgres:$(POSTGRES_PASSWORD)@${var.postgres_host_2}:5432"
           }
 
           env {
-            name = "DB_URL_PREVIEW"
-            value = "postgres://postgres:$(POSTGRES_PASSWORD)@${var.postgres_host}:5432/dbsync-preview"
+            name = "DB_NAMES"
+            value = "mainnet=dbsync-mainnet,preprod=dbsync-preprod,preview=dbsync-preview"
           }
 
           env {

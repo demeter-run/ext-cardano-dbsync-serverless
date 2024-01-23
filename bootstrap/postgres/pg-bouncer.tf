@@ -1,15 +1,15 @@
-resource "kubernetes_deployment_v1" "dbsyncv2_pgcat" {
+resource "kubernetes_deployment_v1" "pgbouncer" {
   wait_for_rollout = false
   metadata {
     labels = {
       role = "pgbouncer"
     }
-    name      = "pgbouncer"
+    name      = "${var.instance_name}-pgbouncer"
     namespace = var.namespace
   }
 
   spec {
-    replicas = 2
+    replicas = var.pg_bouncer_replicas
 
     strategy {
       rolling_update {
@@ -34,7 +34,7 @@ resource "kubernetes_deployment_v1" "dbsyncv2_pgcat" {
       spec {
         container {
           name  = "main"
-          image = "bitnami/pgbouncer:${var.image_tag}"
+          image = "bitnami/pgbouncer:${var.pg_bouncer_image_tag}"
 
           resources {
             limits = {
@@ -80,7 +80,7 @@ resource "kubernetes_deployment_v1" "dbsyncv2_pgcat" {
 
           env {
             name  = "POSTGRESQL_HOST"
-            value = "postgres-dbsync-v3"
+            value = var.instance_name
           }
 
           env {
@@ -90,17 +90,17 @@ resource "kubernetes_deployment_v1" "dbsyncv2_pgcat" {
 
           env {
             name  = "PGBOUNCER_DSN_0"
-            value = "mainnet=host=postgres-dbsync-v3 port=5432 dbname=dbsync-mainnet auth_user=pgbouncer"
+            value = "mainnet=host=${var.instance_name} port=5432 dbname=dbsync-mainnet auth_user=pgbouncer"
           }
 
           env {
             name  = "PGBOUNCER_DSN_1"
-            value = "preview=host=postgres-dbsync-v3 port=5432 dbname=dbsync-preview auth_user=pgbouncer"
+            value = "preview=host=${var.instance_name} port=5432 dbname=dbsync-preview auth_user=pgbouncer"
           }
 
           env {
             name  = "PGBOUNCER_DSN_2"
-            value = "preprod=host=postgres-dbsync-v3 port=5432 dbname=dbsync-preprod auth_user=pgbouncer"
+            value = "preprod=host=${var.instance_name} port=5432 dbname=dbsync-preprod auth_user=pgbouncer"
           }
 
           env {
@@ -131,10 +131,45 @@ resource "kubernetes_deployment_v1" "dbsyncv2_pgcat" {
 
         }
 
+        container {
+          name = "readiness"
+          image = "ghcr.io/demeter-run/cardano-dbsync-probe:${var.dbsync_probe_image_tag}"
+          env {
+            name  = "PGHOST"
+            value = var.instance_name
+          }
+
+          env {
+            name  = "PGPORT"
+            value = "5432"
+          }
+
+          env {
+            name  = "PGUSER"
+            value = "postgres"
+          }
+
+          env {
+            name = "PGPASSWORD"
+            value_from {
+              secret_key_ref {
+                name = "${var.postgres_secret_name}"
+                key  = "password"
+              }
+            }
+          }
+          readiness_probe {
+            exec {
+              command = ["./probe.sh"]
+            }
+            period_seconds = "90"
+          }
+        }
+
         volume {
           name = "pgbouncer-config"
           config_map {
-            name = "pgbouncer-config"
+            name = "${var.instance_name}-pgbouncer-config"
           }
         }
 
@@ -165,7 +200,7 @@ resource "kubernetes_deployment_v1" "dbsyncv2_pgcat" {
 resource "kubernetes_config_map" "dbsync_pgbouncer_config" {
   metadata {
     namespace = var.namespace
-    name      = "pgbouncer-config"
+    name      = "${var.instance_name}-pgbouncer-config"
   }
 
   data = {
