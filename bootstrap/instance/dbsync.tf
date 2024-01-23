@@ -117,7 +117,7 @@ resource "kubernetes_deployment_v1" "db_sync" {
             value_from {
               secret_key_ref {
                 key  = "password"
-                name = "postgres.${var.postgres_instance_name}"
+                name = "${var.postgres_secret_name}"
               }
             }
           }

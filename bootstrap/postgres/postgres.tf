@@ -1,21 +1,3 @@
-locals {
-  node_affinity = {
-    "requiredDuringSchedulingIgnoredDuringExecution" = {
-      "nodeSelectorTerms" = [
-        {
-          "matchExpressions" = [
-            {
-              "key"      = "topology.kubernetes.io/zone"
-              "operator" = "In"
-              "values"   = [var.topology_zone]
-            }
-          ]
-        }
-      ]
-    }
-  }
-}
-
 resource "kubernetes_stateful_set_v1" "postgres" {
   wait_for_rollout = "false"
   metadata {
@@ -74,7 +56,7 @@ resource "kubernetes_stateful_set_v1" "postgres" {
             name = "POSTGRES_PASSWORD"
             value_from {
               secret_key_ref {
-                name = "postgres.${var.instance_name}"
+                name = "${var.postgres_secret_name}"
                 key  = "password"
               }
             }
@@ -123,7 +105,7 @@ resource "kubernetes_stateful_set_v1" "postgres" {
             name = "DATA_SOURCE_PASS"
             value_from {
               secret_key_ref {
-                name = "postgres.${var.instance_name}"
+                name = "${var.postgres_secret_name}"
                 key  = "password"
               }
             }
@@ -132,6 +114,7 @@ resource "kubernetes_stateful_set_v1" "postgres" {
             name  = "PG_EXPORTER_CONSTANT_LABELS"
             value = "service=dbsync-${var.instance_name}"
           }
+
           port {
             name           = "metrics"
             container_port = 9187
