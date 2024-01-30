@@ -1,6 +1,6 @@
 -- create pg bouncer role and user_search function - add to each database
 
-CREATE ROLE pgbouncer WITH PASSWORD 'pgbouncertest';
+CREATE ROLE pgbouncer WITH PASSWORD 'pgbounceruserpass';
 
 CREATE OR REPLACE FUNCTION user_search(uname TEXT) RETURNS TABLE (usename name, passwd text) as
 $$
