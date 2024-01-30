@@ -1,0 +1,4 @@
+"pgbouncer" "${auth_user_password}"
+%{ for user in users ~}
+"${user.name}" "${user.password}"
+%{ endfor ~}

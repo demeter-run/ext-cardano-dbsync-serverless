@@ -2,7 +2,8 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
   wait_for_rollout = false
   metadata {
     labels = {
-      role = "pgbouncer"
+      role                   = "pgbouncer"
+      "demeter.run/instance" = "${var.instance_name}-pgbouncer"
     }
     name      = "${var.instance_name}-pgbouncer"
     namespace = var.namespace
@@ -20,14 +21,16 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
 
     selector {
       match_labels = {
-        role = "pgbouncer"
+        role                   = "pgbouncer"
+        "demeter.run/instance" = "${var.instance_name}-pgbouncer"
       }
     }
 
     template {
       metadata {
         labels = {
-          role = "pgbouncer"
+          role                   = "pgbouncer"
+          "demeter.run/instance" = "${var.instance_name}-pgbouncer"
         }
       }
 
@@ -44,12 +47,6 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
               cpu    = "100m"
               memory = "250Mi"
             }
-          }
-
-          port {
-            container_port = 9930
-            name           = "metrics"
-            protocol       = "TCP"
           }
 
           port {
@@ -89,50 +86,24 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
           }
 
           env {
-            name  = "PGBOUNCER_DSN_0"
-            value = "mainnet=host=${var.instance_name} port=5432 dbname=dbsync-mainnet auth_user=pgbouncer"
-          }
-
-          env {
-            name  = "PGBOUNCER_DSN_1"
-            value = "preview=host=${var.instance_name} port=5432 dbname=dbsync-preview auth_user=pgbouncer"
-          }
-
-          env {
-            name  = "PGBOUNCER_DSN_2"
-            value = "preprod=host=${var.instance_name} port=5432 dbname=dbsync-preprod auth_user=pgbouncer"
-          }
-
-          env {
-            name = "PGBOUNCER_AUTH_USER"
-            value = "pgbouncer"
-          }
-
-          env {
-            name  = "PGBOUNCER_AUTH_QUERY"
-            value = "SELECT usename, passwd FROM user_search($1)"
-          }
-
-          env {
-            name  = "PGBOUNCER_IGNORE_STARTUP_PARAMETERS"
-            value = "ignore_startup_parameters = extra_float_digits"
-          }
-
-
-          env {
-            name = "PGBOUNCER_USERLIST_FILE"
+            name  = "PGBOUNCER_USERLIST_FILE"
             value = "/etc/pgbouncer/users.txt"
           }
 
           volume_mount {
-            name       = "pgbouncer-config"
+            name       = "pgbouncer-users"
             mount_path = "/etc/pgbouncer"
+          }
+
+          volume_mount {
+            name       = "pgbouncer-ini"
+            mount_path = "/bitnami/pgbouncer/conf"
           }
 
         }
 
         container {
-          name = "readiness"
+          name  = "readiness"
           image = "ghcr.io/demeter-run/cardano-dbsync-probe:${var.dbsync_probe_image_tag}"
           env {
             name  = "PGHOST"
@@ -153,7 +124,7 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
             name = "PGPASSWORD"
             value_from {
               secret_key_ref {
-                name = "${var.postgres_secret_name}"
+                name = var.postgres_secret_name
                 key  = "password"
               }
             }
@@ -166,10 +137,31 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
           }
         }
 
+        container {
+          name  = "exporter"
+          image = "prometheuscommunity/pgbouncer-exporter:v0.7.0"
+          port {
+            container_port = 9127
+            name           = "metrics"
+            protocol       = "TCP"
+          }
+          args = [
+            "--pgBouncer.connectionString=postgres://pgbouncer:${var.pg_bouncer_auth_user_password}@localhost:6432/pgbouncer?sslmode=disable",
+          ]
+
+        }
+
         volume {
-          name = "pgbouncer-config"
+          name = "pgbouncer-users"
           config_map {
-            name = "${var.instance_name}-pgbouncer-config"
+            name = "${var.instance_name}-pgbouncer-users"
+          }
+        }
+
+        volume {
+          name = "pgbouncer-ini"
+          config_map {
+            name = "${var.instance_name}-pgbouncer-ini"
           }
         }
 
@@ -197,13 +189,26 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
   }
 }
 
-resource "kubernetes_config_map" "dbsync_pgbouncer_config" {
+
+resource "kubernetes_config_map" "dbsync_pgbouncer_users" {
   metadata {
     namespace = var.namespace
-    name      = "${var.instance_name}-pgbouncer-config"
+    name      = "${var.instance_name}-pgbouncer-users"
   }
 
   data = {
-    "users.txt" = "${file("${path.module}/users.txt")}"
+    "users.txt" = "${templatefile("${path.module}/users.txt.tftpl", { auth_user_password = "${var.pg_bouncer_auth_user_password}", users = var.pg_bouncer_user_settings })}"
+  }
+}
+
+
+resource "kubernetes_config_map" "dbsync_pgbouncer_ini_config" {
+  metadata {
+    namespace = var.namespace
+    name      = "${var.instance_name}-pgbouncer-ini"
+  }
+
+  data = {
+    "pgbouncer.ini" = "${templatefile("${path.module}/pgbouncer.ini.tftpl", { db_host = "${var.instance_name}", users = var.pg_bouncer_user_settings })}"
   }
 }

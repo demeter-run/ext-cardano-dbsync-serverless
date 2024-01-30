@@ -56,7 +56,7 @@ resource "kubernetes_stateful_set_v1" "postgres" {
             name = "POSTGRES_PASSWORD"
             value_from {
               secret_key_ref {
-                name = "${var.postgres_secret_name}"
+                name = var.postgres_secret_name
                 key  = "password"
               }
             }
@@ -88,6 +88,11 @@ resource "kubernetes_stateful_set_v1" "postgres" {
             name       = "config"
             sub_path   = "postgresql.conf"
           }
+
+          volume_mount {
+            mount_path = "/dev/shm"
+            name       = "dshm"
+          }
         }
 
         container {
@@ -105,7 +110,7 @@ resource "kubernetes_stateful_set_v1" "postgres" {
             name = "DATA_SOURCE_PASS"
             value_from {
               secret_key_ref {
-                name = "${var.postgres_secret_name}"
+                name = var.postgres_secret_name
                 key  = "password"
               }
             }
@@ -132,6 +137,14 @@ resource "kubernetes_stateful_set_v1" "postgres" {
           name = "config"
           config_map {
             name = "postgres-config"
+          }
+        }
+
+        volume {
+          name = "dshm"
+          empty_dir {
+            medium     = "Memory"
+            size_limit = "1Gi"
           }
         }
 

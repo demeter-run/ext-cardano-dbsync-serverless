@@ -1,4 +1,4 @@
-variable namespace {
+variable "namespace" {
   type = string
 }
 
@@ -14,7 +14,7 @@ resource "kubernetes_service_v1" "dbsync_pgbouncer_elb" {
   }
 
   spec {
-    type = "LoadBalancer"
+    type                = "LoadBalancer"
     load_balancer_class = "service.k8s.aws/nlb"
 
     port {
