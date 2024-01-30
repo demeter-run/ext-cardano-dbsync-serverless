@@ -1,6 +1,6 @@
 resource "kubernetes_secret" "postgres" {
   metadata {
-    name      = "${var.postgres_secret_name}"
+    name      = var.postgres_secret_name
     namespace = var.namespace
   }
   data = {
