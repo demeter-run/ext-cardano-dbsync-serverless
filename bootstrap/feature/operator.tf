@@ -27,8 +27,8 @@ resource "kubernetes_deployment_v1" "operator" {
 
       spec {
         container {
-          image   = "ghcr.io/demeter-run/ext-cardano-dbsync-serverless:${var.operator_image_tag}"
-          name    = "main"
+          image = "ghcr.io/demeter-run/ext-cardano-dbsync-serverless:${var.operator_image_tag}"
+          name  = "main"
 
           env {
             name  = "K8S_IN_CLUSTER"
@@ -41,7 +41,7 @@ resource "kubernetes_deployment_v1" "operator" {
           }
 
           env {
-            name = "ADDR"
+            name  = "ADDR"
             value = "0.0.0.0:5000"
           }
 
@@ -56,26 +56,26 @@ resource "kubernetes_deployment_v1" "operator" {
           }
 
           env {
-            name = "DCU_PER_SECOND"
+            name  = "DCU_PER_SECOND"
             value = "mainnet=${var.dcu_per_second["mainnet"]},preprod=${var.dcu_per_second["preprod"]},preview=${var.dcu_per_second["preview"]}"
           }
 
           env {
-            name = "DB_URLS"
+            name  = "DB_URLS"
             value = "postgres://postgres:$(POSTGRES_PASSWORD)@${var.postgres_host_1}:5432,postgres://postgres:$(POSTGRES_PASSWORD)@${var.postgres_host_2}:5432"
           }
 
           env {
-            name = "DB_NAMES"
+            name  = "DB_NAMES"
             value = "mainnet=dbsync-mainnet,preprod=dbsync-preprod,preview=dbsync-preview"
           }
 
           env {
-            name = "RUST_BACKTRACE"
+            name  = "RUST_BACKTRACE"
             value = "1"
           }
 
-         
+
           resources {
             limits = {
               memory = "256Mi"
