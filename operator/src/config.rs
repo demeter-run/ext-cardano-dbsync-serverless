@@ -58,7 +58,7 @@ impl Config {
 
         let query_timeout = match env::var("QUERY_TIMEOUT") {
             Ok(val) => val.parse::<u64>().expect("QUERY_TIMEOUT must be a number"),
-            Err(_) => 12000,
+            Err(_) => 120000,
         };
 
         Self {
@@ -109,6 +109,6 @@ mod tests {
         // Check default query timeout
         env::remove_var("QUERY_TIMEOUT");
         let config = Config::from_env();
-        assert_eq!(config.query_timeout, 12000);
+        assert_eq!(config.query_timeout, 120000);
     }
 }
