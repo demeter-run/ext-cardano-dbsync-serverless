@@ -3,7 +3,7 @@ use std::str::FromStr;
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use tokio_postgres::{NoTls, Row};
 
-use crate::Error;
+use crate::{get_config, Error};
 
 #[derive(Clone)]
 pub struct Postgres {
@@ -32,6 +32,10 @@ impl Postgres {
         let query_create_user = format!("create user \"{username}\" with password '{password}';");
         let query_grant = format!("grant select on all tables in schema public to \"{username}\";");
 
+        let timeout = get_config().query_timeout;
+        let query_set_timeout =
+            format!("alter role \"{username}\" set statement_timeout = '{timeout}';");
+
         let mut client = self.pool.get().await?;
         let tx = client.transaction().await?;
 
@@ -45,6 +49,13 @@ impl Postgres {
         let grant_stmt = tx.prepare(&query_grant).await?;
         let grant_result = tx.execute(&grant_stmt, &[]).await;
         if let Err(err) = grant_result {
+            tx.rollback().await?;
+            return Err(Error::PgError(err.to_string()));
+        }
+
+        let set_timeout_stmt = tx.prepare(&query_set_timeout).await?;
+        let set_timeout_result = tx.execute(&set_timeout_stmt, &[]).await;
+        if let Err(err) = set_timeout_result {
             tx.rollback().await?;
             return Err(Error::PgError(err.to_string()));
         }

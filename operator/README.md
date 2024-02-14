@@ -23,6 +23,7 @@ This project is a Kubernetes custom controller to create users on dbsync's Postg
 | DB_NAMES       | preview=dbsync-preview,preprod=dbsync-preprod,mainnet=dbsync-mainnet                    |
 | DCU_PER_SECOND | preview=5,preprod=5,mainnet=5                                                           |
 | METRICS_DELAY  | 30                                                                                      |
+| QUERY_TIMEOUT  | 12000                                                                                   |
 
 
 ## Commands

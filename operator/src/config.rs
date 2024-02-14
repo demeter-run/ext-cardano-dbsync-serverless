@@ -16,6 +16,7 @@ pub struct Config {
     pub dcu_per_second: HashMap<String, f64>,
 
     pub metrics_delay: Duration,
+    pub query_timeout: u64,
 }
 
 impl Config {
@@ -55,11 +56,59 @@ impl Config {
                 .expect("METRICS_DELAY must be a number"),
         );
 
+        let query_timeout = match env::var("QUERY_TIMEOUT") {
+            Ok(val) => val.parse::<u64>().expect("QUERY_TIMEOUT must be a number"),
+            Err(_) => 12000,
+        };
+
         Self {
             db_urls,
             db_names,
             dcu_per_second,
             metrics_delay,
+            query_timeout,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_env() {
+        env::set_var("DB_URLS", "url1,url2");
+        env::set_var(
+            "DB_NAMES",
+            "preview=dbsync-preview,preprod=dbsync-preprod,mainnet=dbsync-mainnet",
+        );
+        env::set_var("DCU_PER_SECOND", "preview=5,preprod=5,mainnet=5");
+        env::set_var("METRICS_DELAY", "100");
+        env::set_var("QUERY_TIMEOUT", "100");
+
+        let config = Config::from_env();
+        assert_eq!(config.db_urls, vec!["url1".to_owned(), "url2".to_owned()]);
+        assert_eq!(
+            config.db_names,
+            HashMap::from([
+                ("preview".to_owned(), "dbsync-preview".to_owned()),
+                ("preprod".to_owned(), "dbsync-preprod".to_owned()),
+                ("mainnet".to_owned(), "dbsync-mainnet".to_owned())
+            ])
+        );
+        assert_eq!(
+            config.dcu_per_second,
+            HashMap::from([
+                ("preview".to_owned(), 5.0),
+                ("preprod".to_owned(), 5.0),
+                ("mainnet".to_owned(), 5.0)
+            ])
+        );
+        assert_eq!(config.query_timeout, 100);
+
+        // Check default query timeout
+        env::remove_var("QUERY_TIMEOUT");
+        let config = Config::from_env();
+        assert_eq!(config.query_timeout, 12000);
     }
 }
