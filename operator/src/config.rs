@@ -16,7 +16,7 @@ pub struct Config {
     pub dcu_per_second: HashMap<String, f64>,
 
     pub metrics_delay: Duration,
-    pub query_timeout: u64,
+    pub statement_timeout: u64,
 }
 
 impl Config {
@@ -56,8 +56,10 @@ impl Config {
                 .expect("METRICS_DELAY must be a number"),
         );
 
-        let query_timeout = match env::var("QUERY_TIMEOUT") {
-            Ok(val) => val.parse::<u64>().expect("QUERY_TIMEOUT must be a number"),
+        let statement_timeout = match env::var("STATEMENT_TIMEOUT") {
+            Ok(val) => val
+                .parse::<u64>()
+                .expect("statement_timeout must be a number"),
             Err(_) => 120000,
         };
 
@@ -66,7 +68,7 @@ impl Config {
             db_names,
             dcu_per_second,
             metrics_delay,
-            query_timeout,
+            statement_timeout,
         }
     }
 }
@@ -84,7 +86,7 @@ mod tests {
         );
         env::set_var("DCU_PER_SECOND", "preview=5,preprod=5,mainnet=5");
         env::set_var("METRICS_DELAY", "100");
-        env::set_var("QUERY_TIMEOUT", "100");
+        env::set_var("STATEMENT_TIMEOUT", "100");
 
         let config = Config::from_env();
         assert_eq!(config.db_urls, vec!["url1".to_owned(), "url2".to_owned()]);
@@ -104,11 +106,11 @@ mod tests {
                 ("mainnet".to_owned(), 5.0)
             ])
         );
-        assert_eq!(config.query_timeout, 100);
+        assert_eq!(config.statement_timeout, 100);
 
         // Check default query timeout
-        env::remove_var("QUERY_TIMEOUT");
+        env::remove_var("STATEMENT_TIMEOUT");
         let config = Config::from_env();
-        assert_eq!(config.query_timeout, 120000);
+        assert_eq!(config.statement_timeout, 120000);
     }
 }
