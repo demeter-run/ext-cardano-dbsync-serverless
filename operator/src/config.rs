@@ -56,12 +56,10 @@ impl Config {
                 .expect("METRICS_DELAY must be a number"),
         );
 
-        let statement_timeout = match env::var("STATEMENT_TIMEOUT") {
-            Ok(val) => val
-                .parse::<u64>()
-                .expect("statement_timeout must be a number"),
-            Err(_) => 120000,
-        };
+        let statement_timeout = env::var("STATEMENT_TIMEOUT")
+            .unwrap_or("120000".to_string())
+            .parse::<u64>()
+            .expect("STATEMENT_TIMEOUT must be a number");
 
         Self {
             db_urls,
