@@ -1,4 +1,4 @@
-resource "kubernetes_manifest" "postgres_podmonitor" {
+resource "kubernetes_manifest" "pgbouncer_podmonitor" {
   manifest = {
     "apiVersion" = "monitoring.coreos.com/v1"
     "kind"       = "PodMonitor"
@@ -7,7 +7,7 @@ resource "kubernetes_manifest" "postgres_podmonitor" {
         "app.kubernetes.io/component" = "o11y"
         "app.kubernetes.io/part-of"   = "demeter"
       }
-      "name"      = var.instance_name
+      "name"      = "${var.instance_name}-pgbouncer"
       "namespace" = var.namespace
     }
     "spec" = {
@@ -19,10 +19,9 @@ resource "kubernetes_manifest" "postgres_podmonitor" {
       ]
       "selector" = {
         "matchLabels" = {
-          "demeter.run/instance" = var.instance_name
+          "demeter.run/instance" = "${var.instance_name}-pgbouncer"
         }
       }
     }
   }
 }
-

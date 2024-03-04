@@ -70,27 +70,3 @@ variable "postgres_settings" {
   }
 }
 
-variable "pg_bouncer_image_tag" {
-  default = "1.21.0"
-}
-
-variable "dbsync_probe_image_tag" {
-  default = "9a41a8e9d9cba3b4439d2a30b13f029fd63c0321"
-}
-
-variable "pg_bouncer_replicas" {
-  default = 1
-}
-
-variable "pg_bouncer_user_settings" {
-  default = []
-  type = list(object({
-    name            = string
-    password        = string
-    max_connections = number
-  }))
-}
-
-variable "pg_bouncer_auth_user_password" {
-  type = string
-}
