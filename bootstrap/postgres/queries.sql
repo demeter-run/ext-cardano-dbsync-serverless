@@ -22,7 +22,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS unique_ada_pots ON public.ada_pots USING btree
 
   
 
-CREATE INDEX IF NOT EXISTS bf_idx_block_hash_encoded ON public.block USING hash (encode((hash)::bytea, 'hex'::text));
 
   
 
@@ -58,10 +57,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS unique_block ON public.block USING btree (hash
 
   
 
-CREATE INDEX IF NOT EXISTS bf_idx_datum_hash ON public.datum USING hash (encode((hash)::bytea, 'hex'::text));
-
-  
-
 CREATE UNIQUE INDEX IF NOT EXISTS datum_pkey ON public.datum USING btree (id);
 
   
@@ -71,14 +66,6 @@ CREATE INDEX IF NOT EXISTS idx_datum_tx_id ON public.datum USING btree (tx_id);
   
 
 CREATE UNIQUE INDEX IF NOT EXISTS unique_datum ON public.datum USING btree (hash);
-
-  
-
-CREATE INDEX IF NOT EXISTS bf_idx_multi_asset_policy ON public.multi_asset USING hash (encode((policy)::bytea, 'hex'::text));
-
-  
-
-CREATE INDEX IF NOT EXISTS bf_idx_multi_asset_policy_name ON public.multi_asset USING hash (((encode((policy)::bytea, 'hex'::text) || encode((name)::bytea, 'hex'::text))));
 
   
 
@@ -98,7 +85,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS unique_multi_asset ON public.multi_asset USING
 
   
 
-CREATE INDEX IF NOT EXISTS bf_idx_pool_hash_view ON public.pool_hash USING hash (view);
 
   
 
@@ -110,7 +96,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS unique_pool_hash ON public.pool_hash USING btr
 
   
 
-CREATE INDEX IF NOT EXISTS bf_idx_redeemer_data_hash ON public.redeemer_data USING hash (encode((hash)::bytea, 'hex'::text));
 
   
 
@@ -126,10 +111,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS unique_redeemer_data ON public.redeemer_data U
 
   
 
-CREATE INDEX IF NOT EXISTS bf_idx_scripts_hash ON public.script USING hash (encode((hash)::bytea, 'hex'::text));
-
-  
-
 CREATE INDEX IF NOT EXISTS idx_script_tx_id ON public.script USING btree (tx_id);
 
   
@@ -139,10 +120,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS script_pkey ON public.script USING btree (id);
   
 
 CREATE UNIQUE INDEX IF NOT EXISTS unique_script ON public.script USING btree (hash);
-
-  
-
-CREATE INDEX IF NOT EXISTS bf_idx_tx_hash ON public.tx USING hash (encode((hash)::bytea, 'hex'::text));
 
   
 
@@ -162,9 +139,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS unique_tx ON public.tx USING btree (hash);
 
   
 
-CREATE UNIQUE INDEX IF NOT EXISTS bf_u_idx_epoch_stake_epoch_and_id ON public.epoch_stake USING btree (epoch_no, id);
-
-  
 
 CREATE UNIQUE INDEX IF NOT EXISTS epoch_stake_pkey ON public.epoch_stake USING btree (id);
 
@@ -743,3 +717,61 @@ CREATE UNIQUE INDEX IF NOT EXISTS unique_cost_model ON public.cost_model USING b
 
 
 CREATE INDEX IF NOT EXISTS ma_tx_out_ident_index ON public.ma_tx_out (ident desc);
+
+
+
+CREATE INDEX IF NOT EXISTS idx_tx_metadata_collection_offers ON public.tx_metadata USING btree ("substring"((json)::text, 2, 56) text_pattern_ops);
+
+
+
+CREATE INDEX stake_address_idx ON stake_address("view");
+
+
+--- BLOCKFROST
+
+CREATE INDEX IF NOT EXISTS bf_idx_block_hash_encoded ON public.block USING hash (encode((hash)::bytea, 'hex'::text));
+
+
+CREATE INDEX IF NOT EXISTS bf_idx_datum_hash ON public.datum USING hash (encode((hash)::bytea, 'hex'::text));
+
+
+CREATE INDEX IF NOT EXISTS bf_idx_multi_asset_policy ON public.multi_asset USING hash (encode((policy)::bytea, 'hex'::text));
+
+  
+CREATE INDEX IF NOT EXISTS bf_idx_multi_asset_policy_name ON public.multi_asset USING hash (((encode((policy)::bytea, 'hex'::text) || encode((name)::bytea, 'hex'::text))));
+
+
+CREATE INDEX IF NOT EXISTS bf_idx_pool_hash_view ON public.pool_hash USING hash (view);
+
+
+CREATE INDEX IF NOT EXISTS bf_idx_redeemer_data_hash ON public.redeemer_data USING hash (encode((hash)::bytea, 'hex'::text));
+
+
+CREATE INDEX IF NOT EXISTS bf_idx_scripts_hash ON public.script USING hash (encode((hash)::bytea, 'hex'::text));
+
+
+CREATE INDEX IF NOT EXISTS bf_idx_tx_hash ON public.tx USING hash (encode((hash)::bytea, 'hex'::text));
+
+
+CREATE UNIQUE INDEX IF NOT EXISTS bf_u_idx_epoch_stake_epoch_and_id ON public.epoch_stake USING btree (epoch_no, id);
+
+
+CREATE INDEX IF NOT EXISTS bf_idx_reference_tx_in_tx_in_id ON reference_tx_in (tx_in_id);
+
+
+CREATE INDEX IF NOT EXISTS bf_idx_collateral_tx_in_tx_in_id ON collateral_tx_in (tx_in_id);
+
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS bf_idx_redeemer_script_hash ON redeemer USING HASH (encode(script_hash, 'hex'));
+
+
+CREATE INDEX IF NOT EXISTS bf_idx_redeemer_tx_id ON redeemer USING btree (tx_id);
+
+
+CREATE INDEX IF NOT EXISTS bf_idx_col_tx_out ON collateral_tx_out USING btree (tx_id);
+
+
+CREATE INDEX IF NOT EXISTS bf_idx_ma_tx_mint_ident ON ma_tx_mint USING btree (ident);
+
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS bf_idx_ma_tx_out_ident ON ma_tx_out USING btree (ident);

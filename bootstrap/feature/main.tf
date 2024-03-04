@@ -38,3 +38,11 @@ variable "postgres_secret_name" {
 variable "postgres_password" {
   type = string
 }
+
+variable "pgbouncer_server_crt" {
+  type = string
+}
+
+variable "pgbouncer_server_key" {
+  type = string
+}

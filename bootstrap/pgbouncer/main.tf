@@ -2,10 +2,69 @@ variable "namespace" {
   type = string
 }
 
+variable "instance_name" {
+  default = "dbsync-v3-pgbouncer"
+}
+
+variable "service_name" {
+  default = "dbsync-v3-pgbouncer"
+}
+
+variable "pg_bouncer_image_tag" {
+  default = "1.21.0"
+}
+
+variable "dbsync_probe_image_tag" {
+  default = "9a41a8e9d9cba3b4439d2a30b13f029fd63c0321"
+}
+
+variable "pg_bouncer_replicas" {
+  default = 1
+}
+
+variable "load_balancer" {
+  default = false
+}
+
+variable "certs_configmap_name" {
+  type = string
+  default = "pgbouncer-certs"
+}
+
+variable "pg_bouncer_user_settings" {
+  default = []
+  type = list(object({
+    name            = string
+    password        = string
+    max_connections = number
+  }))
+}
+
+variable "pg_bouncer_auth_user_password" {
+  type = string
+  default = ""
+}
+
+variable "postgres_secret_name" {
+  type = string
+  default = ""
+}
+
+variable "instance_role" {
+  type = string
+  default = "pgbouncer"
+}
+
+variable "postgres_instance_name" {
+  type = string
+  default = "postgres-dbsync-v3-ar9"
+}
+
 resource "kubernetes_service_v1" "dbsync_pgbouncer_elb" {
+  count = var.load_balancer ? 1 : 0
   metadata {
     namespace = var.namespace
-    name      = "dbsync-v3-pgbouncer"
+    name      = var.service_name
     annotations = {
       "beta.kubernetes.io/aws-load-balancer-nlb-target-type" = "instance"
       "service.beta.kubernetes.io/aws-load-balancer-scheme"  = "internet-facing"
@@ -24,7 +83,7 @@ resource "kubernetes_service_v1" "dbsync_pgbouncer_elb" {
     }
 
     selector = {
-      "role" = "pgbouncer"
+      "role" = var.instance_role
     }
   }
 }
