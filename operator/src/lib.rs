@@ -94,7 +94,9 @@ impl State {
         for (network, db_name) in config.db_names.iter() {
             let mut connections: Vec<Postgres> = Vec::new();
             for url in config.db_urls.iter() {
-                let connection = Postgres::try_new(&format!("{}/{}", url, db_name)).await?;
+                let connection =
+                    Postgres::try_new(&format!("{}/{}", url, db_name), &config.db_max_connections)
+                        .await?;
                 connections.push(connection);
             }
 

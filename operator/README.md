@@ -9,20 +9,21 @@ This project is a Kubernetes custom controller to create users on dbsync's Postg
   ```
   shared_preload_libraries = 'pg_stat_statements'
   ```
-- create the extension on postgres
+- create the extension on Postgres
   ```
   CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
   ```
 
 ## Environment
 
-| Key            | Value                                                                                   |
-| -------------- | --------------------------------------------------------------------------------------- |
-| ADDR           | 0.0.0.0:5000                                                                            |
-| DB_URLS        | postgres://postgres:postgres@127.0.0.1:5432,postgres://postgres:postgres@127.0.0.1:5433 |
-| DB_NAMES       | preview=dbsync-preview,preprod=dbsync-preprod,mainnet=dbsync-mainnet                    |
-| DCU_PER_SECOND | preview=5,preprod=5,mainnet=5                                                           |
-| METRICS_DELAY  | 30                                                                                      |
+| Key                | Value                                                                                   |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| ADDR               | 0.0.0.0:5000                                                                            |
+| DB_URLS            | postgres://postgres:postgres@127.0.0.1:5432,postgres://postgres:postgres@127.0.0.1:5433 |
+| DB_NAMES           | preview=dbsync-preview,preprod=dbsync-preprod,mainnet=dbsync-mainnet                    |
+| DB_MAX_CONNECTIONS | 2                                                                                       |
+| DCU_PER_SECOND     | preview=5,preprod=5,mainnet=5                                                           |
+| METRICS_DELAY      | 30                                                                                      |
 
 
 ## Commands
@@ -41,7 +42,7 @@ cargo run
 
 ## Metrics
 
-to collect metrics for Prometheus, an http api will enable with the route /metrics.
+to collect metrics for Prometheus, an HTTP API will enable the route /metrics.
 
 ```
 /metrics
