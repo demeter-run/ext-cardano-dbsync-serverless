@@ -8,10 +8,14 @@ resource "kubernetes_manifest" "customresourcedefinition_dbsyncports_demeter_run
     "spec" = {
       "group" = "demeter.run"
       "names" = {
-        "categories" = []
+        "categories" = [
+          "demeter-port",
+        ]
         "kind" = "DbSyncPort"
         "plural" = "dbsyncports"
-        "shortNames" = []
+        "shortNames" = [
+          "dbsp",
+        ]
         "singular" = "dbsyncport"
       }
       "scope" = "Namespaced"
@@ -42,11 +46,6 @@ resource "kubernetes_manifest" "customresourcedefinition_dbsyncports_demeter_run
                 "spec" = {
                   "properties" = {
                     "network" = {
-                      "enum" = [
-                        "mainnet",
-                        "preprod",
-                        "preview",
-                      ]
                       "type" = "string"
                     }
                   }
