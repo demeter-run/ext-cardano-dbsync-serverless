@@ -27,6 +27,8 @@ pub static DB_SYNC_PORT_FINALIZER: &str = "dbsyncports.demeter.run";
     kind = "DbSyncPort",
     group = "demeter.run",
     version = "v1alpha1",
+    category = "demeter-port",
+    shortname = "dbsp",
     namespaced
 )]
 #[kube(status = "DbSyncPortStatus")]
