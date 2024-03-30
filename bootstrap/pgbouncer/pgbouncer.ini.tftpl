@@ -1,8 +1,8 @@
 [databases]
 *=host=${db_host} port=5432 auth_user=pgbouncer
-mainnet=host=${db_host} port=5432 dbname=dbsync-mainnet auth_user=pgbouncer
-preview=host=${db_host} port=5432 dbname=dbsync-preview auth_user=pgbouncer
-preprod=host=${db_host} port=5432 dbname=dbsync-preprod auth_user=pgbouncer
+dbsync-mainnet=host=${db_host} port=5432 dbname=dbsync-mainnet auth_user=pgbouncer pool_size=60 max_db_connections=70
+dbsync-preview=host=${db_host} port=5432 dbname=dbsync-preview auth_user=pgbouncer max_db_connections=10
+dbsync-preprod=host=${db_host} port=5432 dbname=dbsync-preprod auth_user=pgbouncer max_db_connections=10
 cardanodbsync=host=${db_host} port=5432 dbname=dbsync-mainnet auth_user=pgbouncer
 
 [pgbouncer]
@@ -27,7 +27,7 @@ tcp_keepcnt=9
 tcp_keepidle=300
 tcp_keepintvl=75
 admin_users=pgbouncer
-max_db_connections=40
+max_db_connections=80
 [users]
 %{ for user in users ~}
 ${user.name} = max_user_connections=${user.max_connections}

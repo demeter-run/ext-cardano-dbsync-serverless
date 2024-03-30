@@ -23,12 +23,9 @@ variable "dcu_per_second" {
   }
 }
 
-variable "postgres_host_1" {
-  type = string
-}
 
-variable "postgres_host_2" {
-  type = string
+variable "postgres_hosts" {
+  type = list(string)
 }
 
 variable "postgres_secret_name" {

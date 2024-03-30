@@ -1,3 +1,8 @@
+locals {
+  postgres_urls          = [for host in var.postgres_hosts : "postgres://postgres:$(POSTGRES_PASSWORD)@${host}:5432"]
+  combined_postgres_urls = join(",", local.postgres_urls)
+}
+
 resource "kubernetes_deployment_v1" "operator" {
   wait_for_rollout = false
 
@@ -57,17 +62,17 @@ resource "kubernetes_deployment_v1" "operator" {
 
           env {
             name  = "DCU_PER_SECOND"
-            value = "mainnet=${var.dcu_per_second["mainnet"]},preprod=${var.dcu_per_second["preprod"]},preview=${var.dcu_per_second["preview"]}"
+            value = "mainnet=${var.dcu_per_second["mainnet"]},preprod=${var.dcu_per_second["preprod"]},preview=${var.dcu_per_second["preview"]},vector-testnet=${var.dcu_per_second["vector-testnet"]}"
           }
 
           env {
             name  = "DB_URLS"
-            value = "postgres://postgres:$(POSTGRES_PASSWORD)@${var.postgres_host_1}:5432,postgres://postgres:$(POSTGRES_PASSWORD)@${var.postgres_host_2}:5432"
+            value = local.combined_postgres_urls
           }
 
           env {
             name  = "DB_NAMES"
-            value = "mainnet=dbsync-mainnet,preprod=dbsync-preprod,preview=dbsync-preview"
+            value = "mainnet=dbsync-mainnet,preprod=dbsync-preprod,preview=dbsync-preview,vector-testnet=dbsync-vector-testnet"
           }
 
           env {
