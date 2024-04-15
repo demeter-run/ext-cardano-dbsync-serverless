@@ -28,6 +28,11 @@ resource "kubernetes_manifest" "customresourcedefinition_dbsyncports_demeter_run
               "type" = "string"
             },
             {
+              "jsonPath" = ".spec.throughputTier"
+              "name" = "Throughput Tier"
+              "type" = "string"
+            },
+            {
               "jsonPath" = ".status.username"
               "name" = "Username"
               "type" = "string"
@@ -46,6 +51,10 @@ resource "kubernetes_manifest" "customresourcedefinition_dbsyncports_demeter_run
                 "spec" = {
                   "properties" = {
                     "network" = {
+                      "type" = "string"
+                    }
+                    "throughput_tier" = {
+                      "nullable" = true
                       "type" = "string"
                     }
                   }
