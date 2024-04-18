@@ -13,6 +13,7 @@ pub fn get_config() -> &'static Config {
 pub struct Config {
     pub db_urls: Vec<String>,
     pub db_names: HashMap<String, String>,
+    pub db_max_connections: usize,
     pub dcu_per_second: HashMap<String, f64>,
 
     pub metrics_delay: Duration,
@@ -35,6 +36,13 @@ impl Config {
                 (parts[0].into(), parts[1].into())
             })
             .collect();
+
+        let db_max_connections = env::var("DB_MAX_CONNECTIONS")
+            .map(|v| {
+                v.parse::<usize>()
+                    .expect("DB_MAX_CONNECTIONS must be number usize")
+            })
+            .unwrap_or(2);
 
         let dcu_per_second = env::var("DCU_PER_SECOND")
             .expect("DCU_PER_SECOND must be set")
@@ -64,6 +72,7 @@ impl Config {
         Self {
             db_urls,
             db_names,
+            db_max_connections,
             dcu_per_second,
             metrics_delay,
             statement_timeout,

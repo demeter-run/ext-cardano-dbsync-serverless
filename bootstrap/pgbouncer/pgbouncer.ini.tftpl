@@ -1,8 +1,9 @@
 [databases]
 *=host=${db_host} port=5432 auth_user=pgbouncer
-mainnet=host=${db_host} port=5432 dbname=dbsync-mainnet auth_user=pgbouncer
-preview=host=${db_host} port=5432 dbname=dbsync-preview auth_user=pgbouncer
-preprod=host=${db_host} port=5432 dbname=dbsync-preprod auth_user=pgbouncer
+dbsync-mainnet=host=${db_host} port=5432 dbname=dbsync-mainnet auth_user=pgbouncer pool_size=60 max_db_connections=70
+dbsync-preview=host=${db_host} port=5432 dbname=dbsync-preview auth_user=pgbouncer max_db_connections=10
+dbsync-preprod=host=${db_host} port=5432 dbname=dbsync-preprod auth_user=pgbouncer max_db_connections=10
+cardanodbsync=host=${db_host} port=5432 dbname=dbsync-mainnet auth_user=pgbouncer
 
 [pgbouncer]
 listen_port=6432
@@ -15,15 +16,18 @@ auth_query=SELECT usename, passwd FROM user_search($1)
 pidfile=/opt/bitnami/pgbouncer/tmp/pgbouncer.pid
 logfile=/opt/bitnami/pgbouncer/logs/pgbouncer.log
 admin_users=postgres
-client_tls_sslmode=disable
+client_tls_sslmode=allow
+client_tls_key_file=/certs/server.key
+client_tls_cert_file=/certs/server.crt
 server_tls_sslmode=disable
-ignore_startup_parameters=ignore_startup_parameters = extra_float_digits
+ignore_startup_parameters=extra_float_digits,statement_timeout
 stats_period=60
 max_user_connections=5
 tcp_keepcnt=9
 tcp_keepidle=300
 tcp_keepintvl=75
 admin_users=pgbouncer
+max_db_connections=80
 [users]
 %{ for user in users ~}
 ${user.name} = max_user_connections=${user.max_connections}

@@ -11,7 +11,7 @@ pub struct Postgres {
 }
 
 impl Postgres {
-    pub async fn try_new(url: &str) -> Result<Self, Error> {
+    pub async fn try_new(url: &str, max_size: &usize) -> Result<Self, Error> {
         let mgr_config = ManagerConfig {
             recycling_method: RecyclingMethod::Fast,
         };
@@ -19,7 +19,7 @@ impl Postgres {
         let config = tokio_postgres::Config::from_str(url)?;
 
         let mgr = Manager::from_config(config, NoTls, mgr_config);
-        let pool = Pool::builder(mgr).build()?;
+        let pool = Pool::builder(mgr).max_size(*max_size).build()?;
 
         Ok(Self { pool })
     }

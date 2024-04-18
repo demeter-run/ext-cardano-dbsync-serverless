@@ -2,7 +2,7 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
   wait_for_rollout = false
   metadata {
     labels = {
-      role                   = "pgbouncer"
+      role                   = var.instance_role
       "demeter.run/instance" = "${var.instance_name}-pgbouncer"
     }
     name      = "${var.instance_name}-pgbouncer"
@@ -10,7 +10,7 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
   }
 
   spec {
-    replicas = var.pg_bouncer_replicas
+    replicas = 1
 
     strategy {
       rolling_update {
@@ -21,7 +21,7 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
 
     selector {
       match_labels = {
-        role                   = "pgbouncer"
+        role                   = var.instance_role
         "demeter.run/instance" = "${var.instance_name}-pgbouncer"
       }
     }
@@ -29,7 +29,7 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
     template {
       metadata {
         labels = {
-          role                   = "pgbouncer"
+          role                   = var.instance_role
           "demeter.run/instance" = "${var.instance_name}-pgbouncer"
         }
       }
@@ -77,7 +77,7 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
 
           env {
             name  = "POSTGRESQL_HOST"
-            value = var.instance_name
+            value = var.postgres_instance_name
           }
 
           env {
@@ -100,6 +100,11 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
             mount_path = "/bitnami/pgbouncer/conf"
           }
 
+          volume_mount {
+            name       = "pgbouncer-certs"
+            mount_path = "/certs"
+          }
+
         }
 
         container {
@@ -107,7 +112,7 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
           image = "ghcr.io/demeter-run/cardano-dbsync-probe:${var.dbsync_probe_image_tag}"
           env {
             name  = "PGHOST"
-            value = var.instance_name
+            value = var.postgres_instance_name
           }
 
           env {
@@ -165,6 +170,13 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
           }
         }
 
+        volume {
+          name = "pgbouncer-certs"
+          config_map {
+            name = var.certs_configmap_name
+          }
+        }
+
         toleration {
           effect   = "NoSchedule"
           key      = "demeter.run/compute-profile"
@@ -209,6 +221,6 @@ resource "kubernetes_config_map" "dbsync_pgbouncer_ini_config" {
   }
 
   data = {
-    "pgbouncer.ini" = "${templatefile("${path.module}/pgbouncer.ini.tftpl", { db_host = "${var.instance_name}", users = var.pg_bouncer_user_settings })}"
+    "pgbouncer.ini" = "${templatefile("${path.module}/pgbouncer.ini.tftpl", { db_host = "${var.postgres_instance_name}", users = var.pg_bouncer_user_settings })}"
   }
 }
