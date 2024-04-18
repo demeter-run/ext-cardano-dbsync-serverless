@@ -53,7 +53,7 @@ resource "kubernetes_manifest" "customresourcedefinition_dbsyncports_demeter_run
                     "network" = {
                       "type" = "string"
                     }
-                    "throughput_tier" = {
+                    "throughputTier" = {
                       "nullable" = true
                       "type" = "string"
                     }

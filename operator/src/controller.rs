@@ -38,6 +38,7 @@ pub static DB_SYNC_PORT_FINALIZER: &str = "dbsyncports.demeter.run";
         {"name": "Username", "jsonPath": ".status.username",  "type": "string"},
         {"name": "Password", "jsonPath": ".status.password", "type": "string"}
     "#)]
+#[serde(rename_all = "camelCase")]
 pub struct DbSyncPortSpec {
     pub network: String,
     pub throughput_tier: Option<String>,
