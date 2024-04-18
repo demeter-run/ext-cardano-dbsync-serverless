@@ -24,6 +24,7 @@ This project is a Kubernetes custom controller to create users on dbsync's Postg
 | DB_MAX_CONNECTIONS | 2                                                                                       |
 | DCU_PER_SECOND     | preview=5,preprod=5,mainnet=5                                                           |
 | METRICS_DELAY      | 30                                                                                      |
+| STATEMENT_TIMEOUT  | 12000                                                                                   |
 
 
 ## Commands

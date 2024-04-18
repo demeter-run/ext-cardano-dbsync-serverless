@@ -17,6 +17,7 @@ pub struct Config {
     pub dcu_per_second: HashMap<String, f64>,
 
     pub metrics_delay: Duration,
+    pub statement_timeout: u64,
 }
 
 impl Config {
@@ -63,12 +64,60 @@ impl Config {
                 .expect("METRICS_DELAY must be a number"),
         );
 
+        let statement_timeout = env::var("STATEMENT_TIMEOUT")
+            .unwrap_or("120000".to_string())
+            .parse::<u64>()
+            .expect("STATEMENT_TIMEOUT must be a number");
+
         Self {
             db_urls,
             db_names,
             db_max_connections,
             dcu_per_second,
             metrics_delay,
+            statement_timeout,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_env() {
+        env::set_var("DB_URLS", "url1,url2");
+        env::set_var(
+            "DB_NAMES",
+            "preview=dbsync-preview,preprod=dbsync-preprod,mainnet=dbsync-mainnet",
+        );
+        env::set_var("DCU_PER_SECOND", "preview=5,preprod=5,mainnet=5");
+        env::set_var("METRICS_DELAY", "100");
+        env::set_var("STATEMENT_TIMEOUT", "100");
+
+        let config = Config::from_env();
+        assert_eq!(config.db_urls, vec!["url1".to_owned(), "url2".to_owned()]);
+        assert_eq!(
+            config.db_names,
+            HashMap::from([
+                ("preview".to_owned(), "dbsync-preview".to_owned()),
+                ("preprod".to_owned(), "dbsync-preprod".to_owned()),
+                ("mainnet".to_owned(), "dbsync-mainnet".to_owned())
+            ])
+        );
+        assert_eq!(
+            config.dcu_per_second,
+            HashMap::from([
+                ("preview".to_owned(), 5.0),
+                ("preprod".to_owned(), 5.0),
+                ("mainnet".to_owned(), 5.0)
+            ])
+        );
+        assert_eq!(config.statement_timeout, 100);
+
+        // Check default query timeout
+        env::remove_var("STATEMENT_TIMEOUT");
+        let config = Config::from_env();
+        assert_eq!(config.statement_timeout, 120000);
     }
 }
