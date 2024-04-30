@@ -17,6 +17,7 @@ pub struct Config {
     pub dcu_per_second: HashMap<String, f64>,
 
     pub metrics_delay: Duration,
+    pub prometheus_url: String,
     pub statement_timeout: u64,
 }
 
@@ -64,6 +65,8 @@ impl Config {
                 .expect("METRICS_DELAY must be a number"),
         );
 
+        let prometheus_url = env::var("PROMETHEUS_URL").expect("PROMETHEUS_URL must be set");
+
         let statement_timeout = env::var("STATEMENT_TIMEOUT")
             .unwrap_or("120000".to_string())
             .parse::<u64>()
@@ -75,6 +78,7 @@ impl Config {
             db_max_connections,
             dcu_per_second,
             metrics_delay,
+            prometheus_url,
             statement_timeout,
         }
     }
@@ -93,6 +97,7 @@ mod tests {
         );
         env::set_var("DCU_PER_SECOND", "preview=5,preprod=5,mainnet=5");
         env::set_var("METRICS_DELAY", "100");
+        env::set_var("PROMETHEUS_URL", "localhost");
         env::set_var("STATEMENT_TIMEOUT", "100");
 
         let config = Config::from_env();

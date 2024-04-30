@@ -1,14 +1,11 @@
-use futures::future;
+use chrono::Utc;
 use kube::{api::ListParams, Api, Client, Resource, ResourceExt};
 use prometheus::{opts, IntCounterVec, Registry};
-use std::{collections::HashMap, sync::Arc};
-use tracing::{error, info, instrument};
+use serde::{Deserialize, Deserializer};
+use std::sync::Arc;
+use tracing::{error, info, instrument, warn};
 
-use crate::{
-    get_config,
-    postgres::{Postgres, UserStatements},
-    DbSyncPort, Error, State,
-};
+use crate::{get_config, Config, DbSyncPort, Error, State};
 
 #[derive(Clone)]
 pub struct Metrics {
@@ -135,13 +132,14 @@ pub async fn run_metrics_collector(state: Arc<State>) {
             .await
             .expect("failed to create kube client");
 
-        let config = get_config();
-
-        let mut metrics_state: HashMap<String, HashMap<String, UserStatements>> = HashMap::new();
-
         let crds_api = Api::<DbSyncPort>::all(client.clone());
 
+        let config = get_config();
+        let mut last_execution = Utc::now();
+
         loop {
+            tokio::time::sleep(config.metrics_delay).await;
+
             let crds_result = crds_api.list(&ListParams::default()).await;
             if let Err(error) = crds_result {
                 error!(error = error.to_string(), "error to get k8s resources");
@@ -150,97 +148,114 @@ pub async fn run_metrics_collector(state: Arc<State>) {
             }
             let crds = crds_result.unwrap();
 
-            for crd in crds.items.iter().filter(|i| i.status.is_some()) {
-                let status = crd.status.as_ref().unwrap();
+            let end = Utc::now();
+            let interval = (end - last_execution).num_seconds();
 
-                let pg_connections_result = state.get_pg_by_network(&crd.spec.network);
-                if let Err(error) = pg_connections_result {
+            last_execution = end;
+
+            let query = format!(
+                "sum by (user) (avg_over_time(pgbouncer_pools_client_active_connections[{interval}s] @ {})) > 0",
+                end.timestamp_millis() / 1000
+            );
+
+            let response = collect_prometheus_metrics(config, query).await;
+            if let Err(err) = response {
+                error!(error = err.to_string(), "error to make prometheus request");
+                state.metrics.metrics_failure(&err);
+                continue;
+            }
+            let response = response.unwrap();
+
+            for result in response.data.result {
+                let crd = crds
+                    .iter()
+                    .filter(|c| c.status.is_some())
+                    .find(|c| c.status.as_ref().unwrap().username.eq(&result.metric.user));
+
+                if crd.is_none() {
+                    warn!(user = result.metric.user, "username doesnt have a crd");
+                    continue;
+                }
+
+                let crd = crd.unwrap();
+
+                let dcu_per_second = config.dcu_per_second.get(&crd.spec.network);
+                if dcu_per_second.is_none() {
+                    let error = Error::ConfigError(format!(
+                        "dcu_per_second not configured to {} network",
+                        &crd.spec.network
+                    ));
                     error!(error = error.to_string());
                     state.metrics.metrics_failure(&error);
                     continue;
                 }
 
-                let user_statements_result =
-                    get_user_statements(&status.username, pg_connections_result.unwrap()).await;
-                if let Err(error) = user_statements_result {
-                    error!(error = error.to_string(), "error get user statements");
-                    state.metrics.metrics_failure(&error);
-                    continue;
-                }
+                let dcu_per_second = dcu_per_second.unwrap();
+                let total_exec_time = result.value * (interval as f64);
 
-                let user_statements = user_statements_result.unwrap();
-
-                let latest_user_statement = metrics_state
-                    .entry(crd.spec.network.clone())
-                    .or_default()
-                    .get(&user_statements.usename);
-
-                if let Some(latest_user_statement) = latest_user_statement {
-                    let total_exec_time =
-                        user_statements.total_exec_time - latest_user_statement.total_exec_time;
-
-                    if total_exec_time == 0.0 {
-                        continue;
-                    }
-
-                    let dcu_per_second = config.dcu_per_second.get(&crd.spec.network);
-                    if dcu_per_second.is_none() {
-                        let error = Error::ConfigError(format!(
-                            "dcu_per_second not configured to {} network",
-                            &crd.spec.network
-                        ));
-                        error!(error = error.to_string());
-                        state.metrics.metrics_failure(&error);
-                        continue;
-                    }
-
-                    let dcu_per_second = dcu_per_second.unwrap();
-
-                    let dcu = (total_exec_time / 1000.) * dcu_per_second;
-                    state.metrics.count_dcu_consumed(
-                        &crd.namespace().unwrap(),
-                        &crd.spec.network,
-                        dcu,
-                    );
-                }
-
-                metrics_state
-                    .entry(crd.spec.network.clone())
-                    .and_modify(|statements| {
-                        statements.insert(user_statements.usename.clone(), user_statements);
-                    });
+                let dcu = total_exec_time * dcu_per_second;
+                state
+                    .metrics
+                    .count_dcu_consumed(&crd.namespace().unwrap(), &crd.spec.network, dcu);
             }
-
-            tokio::time::sleep(config.metrics_delay).await;
         }
     });
 }
 
-async fn get_user_statements(
-    username: &str,
-    pg_connections: &[Postgres],
-) -> Result<UserStatements, Error> {
-    let tasks = future::join_all(
-        pg_connections
-            .iter()
-            .map(|pg| pg.find_metrics_by_user(username)),
-    )
-    .await;
+async fn collect_prometheus_metrics(
+    config: &Config,
+    query: String,
+) -> Result<PrometheusResponse, Error> {
+    let client = reqwest::Client::builder().build().unwrap();
 
-    let mut user_statements_all_host = UserStatements {
-        usename: username.into(),
-        total_exec_time: 0.,
-    };
+    let response = client
+        .get(format!("{}/query?query={query}", config.prometheus_url))
+        .send()
+        .await?;
 
-    for user_statements_by_host_result in tasks.into_iter() {
-        let user_statements_by_host = user_statements_by_host_result?;
-        if user_statements_by_host.is_none() {
-            continue;
-        }
-
-        let user_statements_by_host = user_statements_by_host.unwrap();
-        user_statements_all_host.total_exec_time += user_statements_by_host.total_exec_time;
+    let status = response.status();
+    if status.is_client_error() || status.is_server_error() {
+        error!(status = status.to_string(), "request status code fail");
+        return Err(Error::HttpError(format!(
+            "Prometheus request error. Status: {} Query: {}",
+            status, query
+        )));
     }
 
-    Ok(user_statements_all_host)
+    Ok(response.json().await.unwrap())
+}
+
+#[derive(Debug, Deserialize)]
+struct PrometheusDataResultMetric {
+    user: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PrometheusDataResult {
+    metric: PrometheusDataResultMetric,
+    #[serde(deserialize_with = "deserialize_value")]
+    value: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrometheusData {
+    result: Vec<PrometheusDataResult>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PrometheusResponse {
+    data: PrometheusData,
+}
+
+fn deserialize_value<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value: Vec<serde_json::Value> = Deserialize::deserialize(deserializer)?;
+    Ok(value.into_iter().as_slice()[1]
+        .as_str()
+        .unwrap()
+        .parse::<f64>()
+        .unwrap())
 }
