@@ -171,6 +171,8 @@ spec:
               value: "preview=5"
             - name: METRICS_DELAY
               value: "30"
+            - name: PROMETHEUS_URL
+              value: localhost 
             - name: RUST_LOG
               value: info,kube=debug,controller=debug
 ---
