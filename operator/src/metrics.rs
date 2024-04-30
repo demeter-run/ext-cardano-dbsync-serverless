@@ -211,7 +211,6 @@ async fn collect_prometheus_metrics(
 
     let response = client
         .get(format!("{}/query?query={query}", config.prometheus_url))
-        .header("dmtr-api-key", "dmtr1phx4ztpznctr9amyu39hj9lg5y394ryu3j9")
         .send()
         .await?;
 
