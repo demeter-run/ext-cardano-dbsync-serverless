@@ -154,9 +154,10 @@ pub async fn run_metrics_collector(state: Arc<State>) {
             last_execution = end;
 
             let query = format!(
-                "sum by (user) (avg_over_time(pgbouncer_pools_client_active_connections[{interval}s] @ {})) > 0",
+                "sum by (user) (avg_over_time(pgbouncer_pools_client_active_connections{{user=~\"dmtr_.*\"}}[{interval}s] @ {})) > 0",
                 end.timestamp_millis() / 1000
             );
+            dbg!(&query);
 
             let response = collect_prometheus_metrics(config, query).await;
             if let Err(err) = response {
@@ -210,6 +211,7 @@ async fn collect_prometheus_metrics(
 
     let response = client
         .get(format!("{}/query?query={query}", config.prometheus_url))
+        .header("dmtr-api-key", "dmtr1phx4ztpznctr9amyu39hj9lg5y394ryu3j9")
         .send()
         .await?;
 
