@@ -31,6 +31,9 @@ pub enum Error {
 
     #[error("Config Error: {0}")]
     ConfigError(String),
+
+    #[error("Http Request error: {0}")]
+    HttpError(String),
 }
 
 impl Error {
@@ -73,6 +76,11 @@ impl From<prometheus::Error> for Error {
 impl From<bech32::Error> for Error {
     fn from(value: bech32::Error) -> Self {
         Error::Bech32Error(value)
+    }
+}
+impl From<reqwest::Error> for Error {
+    fn from(value: reqwest::Error) -> Self {
+        Error::HttpError(value.to_string())
     }
 }
 

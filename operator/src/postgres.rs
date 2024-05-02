@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
-use tokio_postgres::{NoTls, Row};
+use tokio_postgres::NoTls;
 
 use crate::{get_config, Error};
 
@@ -110,43 +110,5 @@ impl Postgres {
         let result = client.query_opt(&stmt, &[&username]).await?;
 
         Ok(result.is_some())
-    }
-
-    pub async fn find_metrics_by_user(
-        &self,
-        username: &str,
-    ) -> Result<Option<UserStatements>, Error> {
-        let query_metrics = "select
-            usename,
-            sum(total_exec_time) as total_exec_time
-        from
-            pg_stat_statements
-        inner join
-            pg_catalog.pg_user on pg_catalog.pg_user.usesysid = userid
-        where 
-            pg_catalog.pg_user.usename = $1
-        group by
-            usename;";
-
-        let client = self.pool.get().await?;
-
-        let stmt = client.prepare(query_metrics).await?;
-        let result = client.query_opt(&stmt, &[&username]).await?;
-
-        Ok(result.as_ref().map(|row| row.into()))
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct UserStatements {
-    pub usename: String,
-    pub total_exec_time: f64,
-}
-impl From<&Row> for UserStatements {
-    fn from(row: &Row) -> Self {
-        Self {
-            usename: row.get("usename"),
-            total_exec_time: row.get("total_exec_time"),
-        }
     }
 }

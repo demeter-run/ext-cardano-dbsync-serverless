@@ -2,6 +2,9 @@ FROM rust:1.74-slim-buster as build
 
 WORKDIR /app
 
+RUN apt update 
+RUN apt install -y build-essential pkg-config libssl-dev cmake
+
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 COPY ./src ./src
