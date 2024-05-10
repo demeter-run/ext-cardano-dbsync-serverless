@@ -15,7 +15,7 @@ variable "pg_bouncer_image_tag" {
 }
 
 variable "dbsync_probe_image_tag" {
-  default = "9a41a8e9d9cba3b4439d2a30b13f029fd63c0321"
+  default = "27a9dbc30253e7d2036f1d6648d406f3d17a90e2"
 }
 
 variable "pg_bouncer_replicas" {
