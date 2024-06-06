@@ -2,6 +2,7 @@
 
 echo "updating pgbouncer userlist.txt"
 # Combine the files and sort them
+cd /opt/bitnami/pgbouncer/conf
 cat /etc/pgbouncer/users.txt /opt/bitnami/pgbouncer/conf/userlist.txt | sort > combined_sorted.txt
 
 # Use awk to remove duplicates, keeping the last occurrence
