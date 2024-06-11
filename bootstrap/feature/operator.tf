@@ -76,6 +76,11 @@ resource "kubernetes_deployment_v1" "operator" {
           }
 
           env {
+            name  = "PROMETHEUS_URL"
+            value = "http://prometheus-operated.demeter-system.svc.cluster.local:9090/api/v1"
+          }
+
+          env {
             name  = "RUST_BACKTRACE"
             value = "1"
           }
