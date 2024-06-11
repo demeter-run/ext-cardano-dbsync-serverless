@@ -6,6 +6,6 @@ resource "kubernetes_config_map" "pgbouncer_certs" {
 
   data = {
     "server.crt" = var.pgbouncer_server_crt
-    "server.key"    = var.pgbouncer_server_key
+    "server.key" = var.pgbouncer_server_key
   }
 }
