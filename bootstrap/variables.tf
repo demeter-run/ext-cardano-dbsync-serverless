@@ -91,7 +91,7 @@ variable "cells" {
     pvc = object({
       volume_name  = string
       storage_size = string
-      name         = string
+      name         = optional(string)
     })
     postgres = object({
       image_tag     = string
