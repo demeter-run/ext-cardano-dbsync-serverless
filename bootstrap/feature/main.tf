@@ -2,10 +2,6 @@ variable "namespace" {
   type = string
 }
 
-variable "instance_name" {
-  type = string
-}
-
 variable "operator_image_tag" {
   type = string
 }
