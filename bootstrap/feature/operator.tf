@@ -62,7 +62,7 @@ resource "kubernetes_deployment_v1" "operator" {
 
           env {
             name  = "DCU_PER_SECOND"
-            value = "mainnet=${var.dcu_per_second["mainnet"]},preprod=${var.dcu_per_second["preprod"]},preview=${var.dcu_per_second["preview"]},vector-testnet=${var.dcu_per_second["vector-testnet"]}"
+            value = "mainnet=${var.dcu_per_second["mainnet"]},preprod=${var.dcu_per_second["preprod"]},preview=${var.dcu_per_second["preview"]},vector-testnet=${var.dcu_per_second["vector-testnet"]},prime-testnet=${var.dcu_per_second["prime-testnet"]}"
           }
 
           env {
@@ -72,7 +72,7 @@ resource "kubernetes_deployment_v1" "operator" {
 
           env {
             name  = "DB_NAMES"
-            value = "mainnet=dbsync-mainnet,preprod=dbsync-preprod,preview=dbsync-preview,vector-testnet=dbsync-vector-testnet"
+            value = "mainnet=dbsync-mainnet,preprod=dbsync-preprod,preview=dbsync-preview,vector-testnet=dbsync-vector-testnet,prime-testnet=dbsync-prime-testnet"
           }
 
           env {
