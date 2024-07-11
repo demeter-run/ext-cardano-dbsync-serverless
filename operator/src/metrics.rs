@@ -173,43 +173,48 @@ pub async fn run_metrics_collector(state: Arc<State>) {
             last_execution = end;
 
             let query = format!(
-                "sum by (user) (avg_over_time(pgbouncer_pools_client_active_connections{{user=~\"dmtr_.*\", namespace=\"{current_namespace}\"}}[{interval}s] @ {})) > 0",
+                "sum by (usename) (avg_over_time(pg_stat_activity_count{{usename=~\"dmtr_.*\", namespace=\"{current_namespace}\"}}[{interval}s] @ {})) > 0",
                 end.timestamp_millis() / 1000
             );
 
-            let response = collect_prometheus_metrics(config, query).await;
-            if let Err(err) = response {
-                error!(error = err.to_string(), "error to make prometheus request");
-                state.metrics.metrics_failure(&err);
-                continue;
-            }
-            let response = response.unwrap();
+            let response = match collect_prometheus_metrics(config, query).await {
+                Ok(response) => response,
+                Err(err) => {
+                    error!(error = err.to_string(), "error to make prometheus request");
+                    state.metrics.metrics_failure(&err);
+                    continue;
+                }
+            };
 
             for result in response.data.result {
-                let crd = crds
-                    .iter()
-                    .filter(|c| c.status.is_some())
-                    .find(|c| c.status.as_ref().unwrap().username.eq(&result.metric.user));
+                let crd = match crds.iter().filter(|c| c.status.is_some()).find(|c| {
+                    c.status
+                        .as_ref()
+                        .unwrap()
+                        .username
+                        .eq(&result.metric.usename)
+                }) {
+                    Some(crd) => crd,
+                    None => {
+                        if result.metric.usename != "dmtr_blockfrost" {
+                            warn!(user = result.metric.usename, "username doesnt have a crd");
+                        }
+                        continue;
+                    }
+                };
 
-                if crd.is_none() {
-                    warn!(user = result.metric.user, "username doesnt have a crd");
-                    continue;
-                }
-
-                let crd = crd.unwrap();
-
-                let dcu_per_second = config.dcu_per_second.get(&crd.spec.network);
-                if dcu_per_second.is_none() {
-                    let error = Error::ConfigError(format!(
-                        "dcu_per_second not configured to {} network",
-                        &crd.spec.network
-                    ));
-                    error!(error = error.to_string());
-                    state.metrics.metrics_failure(&error);
-                    continue;
-                }
-
-                let dcu_per_second = dcu_per_second.unwrap();
+                let dcu_per_second = match config.dcu_per_second.get(&crd.spec.network) {
+                    Some(dcu_per_second) => dcu_per_second,
+                    None => {
+                        let error = Error::ConfigError(format!(
+                            "dcu_per_second not configured to {} network",
+                            &crd.spec.network
+                        ));
+                        error!(error = error.to_string());
+                        state.metrics.metrics_failure(&error);
+                        continue;
+                    }
+                };
                 let total_exec_time = result.value * (interval as f64);
 
                 let dcu = total_exec_time * dcu_per_second;
@@ -258,7 +263,7 @@ async fn collect_prometheus_metrics(
 
 #[derive(Debug, Deserialize)]
 struct PrometheusDataResultMetric {
-    user: String,
+    usename: String,
 }
 
 #[derive(Debug, Deserialize)]
