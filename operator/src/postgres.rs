@@ -31,6 +31,7 @@ impl Postgres {
 
         let query_create_user = format!("create user \"{username}\" with password '{password}';");
         let query_grant = format!("grant select on all tables in schema public to \"{username}\";");
+        let query_privileges = format!("alter default privileges in schema public grant all privileges on tables to \"{username}\";");
 
         let timeout = get_config().statement_timeout;
         let query_set_timeout =
@@ -49,6 +50,12 @@ impl Postgres {
         let grant_stmt = tx.prepare(&query_grant).await?;
         let grant_result = tx.execute(&grant_stmt, &[]).await;
         if let Err(err) = grant_result {
+            tx.rollback().await?;
+            return Err(Error::PgError(err.to_string()));
+        }
+
+        let privileges_stmt = tx.prepare(&query_privileges).await?;
+        if let Err(err) = tx.execute(&privileges_stmt, &[]).await {
             tx.rollback().await?;
             return Err(Error::PgError(err.to_string()));
         }
