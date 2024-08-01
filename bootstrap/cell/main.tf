@@ -3,6 +3,7 @@
 // network).
 locals {
   postgres_host        = "postgres-dbsync-v3-${var.salt}"
+  dbsync_image         = "ghcr.io/demeter-run/dbsync"
   db_volume_claim      = coalesce(var.db_volume_claim, "pvc-${var.salt}")
   postgres_config_name = coalesce(var.postgres_config_name, "postgres-config-${var.salt}")
 }
@@ -48,11 +49,18 @@ module "dbsync_instances" {
   namespace             = var.namespace
   network               = each.value.network
   salt                  = coalesce(each.value.salt, var.salt)
+  dbsync_image          = coalesce(each.value.dbsync_image, local.dbsync_image)
   dbsync_image_tag      = each.value.dbsync_image_tag
   node_n2n_tcp_endpoint = each.value.node_n2n_tcp_endpoint
   release               = each.value.release
   topology_zone         = coalesce(each.value.topology_zone, var.topology_zone)
   sync_status           = each.value.sync_status
+  compute_arch          = coalesce(each.value.compute_arch, "arm64")
+  compute_profile       = coalesce(each.value.compute_profile, "mem-intensive")
+  availability_sla      = coalesce(each.value.availability_sla, "consistent")
+  empty_args            = coalesce(each.value.empty_args, false)
+  custom_config         = coalesce(each.value.custom_config, true)
+  network_env_var       = coalesce(each.value.network_env_var, false)
 
   enable_postgrest       = each.value.enable_postgrest
   postgres_database      = "dbsync-${each.value.network}"

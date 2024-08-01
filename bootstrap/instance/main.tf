@@ -8,6 +8,11 @@ terraform {
 
 variable "namespace" {}
 
+
+variable "dbsync_image" {
+  type = string
+  default = "ghcr.io/demeter-run/dbsync"
+}
 variable "dbsync_image_tag" {
   default = "132ffd0007054bfadd17b23ed608529447833b99"
 }
@@ -82,6 +87,30 @@ variable "postgres_database" {
 
 variable "postgres_secret_name" {
   type = string
+}
+
+variable "compute_arch" {
+  default = "arm64"
+}
+
+variable "compute_profile" {
+  default = "mem-intensive"
+}
+
+variable "availability_sla" {
+  default = "consistent"
+}
+
+variable "empty_args" {
+  default = false
+}
+
+variable "custom_config" {
+  default = true
+}
+
+variable "network_env_var" {
+  default = false
 }
 
 module "configs" {

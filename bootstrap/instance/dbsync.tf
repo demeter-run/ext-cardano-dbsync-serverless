@@ -75,6 +75,56 @@ resource "kubernetes_deployment_v1" "db_sync" {
           }
         }
 
+        dynamic "init_container" {
+          for_each = var.network == "vector-testnet" ? toset([1]) : toset([])
+
+          content {
+            name = "init-pgpass"
+
+            image = "busybox"
+
+            command = [
+              "sh", "-c", <<-EOT
+              echo "$(echo $POSTGRES_HOST):$(echo $POSTGRES_PORT):$(echo $POSTGRES_DB):$(echo $POSTGRES_USER):$(echo $POSTGRES_PASSWORD)" > /etc/pgpass/pgpass
+              chmod 600 /etc/pgpass/pgpass
+              EOT
+            ]
+            env {
+              name  = "POSTGRES_USER"
+              value = "postgres"
+            }
+
+            env {
+              name = "POSTGRES_PASSWORD"
+              value_from {
+                secret_key_ref {
+                  key  = "password"
+                  name = var.postgres_secret_name
+                }
+              }
+            }
+
+            env {
+              name  = "POSTGRES_DB"
+              value = var.postgres_database
+            }
+
+            env {
+              name  = "POSTGRES_HOST"
+              value = var.postgres_instance_name
+            }
+
+            env {
+              name  = "POSTGRES_PORT"
+              value = "5432"
+            }
+            volume_mount {
+              name       = "pgpass-volume"
+              mount_path = "/etc/pgpass"
+            }
+          }
+        }
+
         container {
           args = [
             "-d",
@@ -95,16 +145,16 @@ resource "kubernetes_deployment_v1" "db_sync" {
         container {
           name = "dbsync"
 
-          image = "ghcr.io/demeter-run/dbsync:${var.dbsync_image_tag}"
+          image = "${var.dbsync_image}:${var.dbsync_image_tag}"
 
           resources {
             limits   = var.dbsync_resources.limits
             requests = var.dbsync_resources.requests
           }
 
-          args = [
+          args = var.empty_args ? [] : [
             "--config /etc/dbsync/db-sync-config.json",
-            "--socket-path /node-ipc/node.socket"
+            "--socket-path /node-ipc/node.socket",
           ]
 
           env {
@@ -144,12 +194,23 @@ resource "kubernetes_deployment_v1" "db_sync" {
 
           env {
             name  = "NETWORK"
-            value = ""
+            value = var.network_env_var ? var.network : ""
           }
 
-          volume_mount {
-            mount_path = "/etc/dbsync"
-            name       = "config"
+          dynamic "env" {
+            for_each = var.network == "vector-testnet" ? toset([1]) : toset([])
+            content {
+              name  = "PGPASSFILE"
+              value = "/etc/pgpass/pgpass"
+            }
+          }
+
+          dynamic "volume_mount" {
+            for_each = var.custom_config ? toset([1]) : toset([])
+            content {
+              name       = "config"
+              mount_path = "/etc/dbsync"
+            }
           }
 
           volume_mount {
@@ -162,16 +223,26 @@ resource "kubernetes_deployment_v1" "db_sync" {
             name       = "state"
           }
 
+          dynamic "volume_mount" {
+            for_each = var.network == "vector-testnet" ? toset([1]) : toset([])
+            content {
+              name       = "pgpass-volume"
+              mount_path = "/etc/pgpass"
+            }
+          }
+
           port {
             container_port = 8080
             name           = "metrics"
           }
         }
-
-        volume {
-          name = "config"
-          config_map {
-            name = local.config_map_name
+        dynamic "volume" {
+          for_each = var.custom_config ? toset([1]) : toset([0])
+          content {
+            name = "config"
+            config_map {
+              name = local.config_map_name
+            }
           }
         }
 
@@ -187,6 +258,15 @@ resource "kubernetes_deployment_v1" "db_sync" {
           }
         }
 
+        dynamic "volume" {
+          for_each = var.network == "vector-testnet" ? toset([1]) : toset([])
+          content {
+            name = "pgpass-volume"
+            empty_dir {}
+          }
+        }
+
+
         toleration {
           key      = "demeter.run/workload"
           operator = "Equal"
@@ -198,21 +278,21 @@ resource "kubernetes_deployment_v1" "db_sync" {
           effect   = "NoSchedule"
           key      = "demeter.run/compute-profile"
           operator = "Equal"
-          value    = "mem-intensive"
+          value    = var.compute_profile
         }
 
         toleration {
           effect   = "NoSchedule"
           key      = "demeter.run/compute-arch"
           operator = "Equal"
-          value    = "arm64"
+          value    = var.compute_arch
         }
 
         toleration {
           effect   = "NoSchedule"
           key      = "demeter.run/availability-sla"
           operator = "Equal"
-          value    = "consistent"
+          value    = var.availability_sla
         }
       }
     }
