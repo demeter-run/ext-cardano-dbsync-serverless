@@ -53,7 +53,15 @@ resource "kubernetes_manifest" "customresourcedefinition_dbsyncports_demeter_run
                     "network" = {
                       "type" = "string"
                     }
+                    "password" = {
+                      "nullable" = true
+                      "type" = "string"
+                    }
                     "throughputTier" = {
+                      "nullable" = true
+                      "type" = "string"
+                    }
+                    "username" = {
                       "nullable" = true
                       "type" = "string"
                     }

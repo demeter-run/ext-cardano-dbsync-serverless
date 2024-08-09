@@ -42,6 +42,8 @@ pub static DB_SYNC_PORT_FINALIZER: &str = "dbsyncports.demeter.run";
 pub struct DbSyncPortSpec {
     pub network: String,
     pub throughput_tier: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
 }
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema)]
 pub struct DbSyncPortStatus {
@@ -49,9 +51,18 @@ pub struct DbSyncPortStatus {
     pub password: String,
 }
 impl DbSyncPortStatus {
-    pub async fn try_new(name: &str, ns: &str) -> Result<Self, Error> {
-        let username = gen_username_hash(&format!("{name}.{ns}")).await?;
-        let password = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
+    pub async fn try_new(port: &DbSyncPort) -> Result<Self, Error> {
+        let ns = port.namespace().unwrap();
+        let name = port.name_any();
+
+        let username = match &port.spec.username {
+            Some(username) => username.clone(),
+            None => gen_username_hash(&format!("{name}.{ns}")).await?,
+        };
+        let password = match &port.spec.password {
+            Some(password) => password.clone(),
+            None => Alphanumeric.sample_string(&mut rand::thread_rng(), 16),
+        };
 
         Ok(Self { username, password })
     }
@@ -71,7 +82,7 @@ impl DbSyncPort {
         let status = self
             .status
             .clone()
-            .unwrap_or(DbSyncPortStatus::try_new(&name, &ns).await?);
+            .unwrap_or(DbSyncPortStatus::try_new(self).await?);
 
         if self.status.is_none() {
             let payload = json!({ "status": status });
