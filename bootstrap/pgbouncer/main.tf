@@ -27,7 +27,7 @@ variable "load_balancer" {
 }
 
 variable "certs_configmap_name" {
-  type = string
+  type    = string
   default = "pgbouncer-certs"
 }
 
@@ -41,22 +41,22 @@ variable "pg_bouncer_user_settings" {
 }
 
 variable "pg_bouncer_auth_user_password" {
-  type = string
+  type    = string
   default = ""
 }
 
 variable "postgres_secret_name" {
-  type = string
+  type    = string
   default = ""
 }
 
 variable "instance_role" {
-  type = string
+  type    = string
   default = "pgbouncer"
 }
 
 variable "postgres_instance_name" {
-  type = string
+  type    = string
   default = "postgres-dbsync-v3-ar9"
 }
 

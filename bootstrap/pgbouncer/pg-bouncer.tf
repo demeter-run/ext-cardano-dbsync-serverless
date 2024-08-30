@@ -10,7 +10,7 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
   }
 
   spec {
-    replicas = 1
+    replicas = var.pg_bouncer_replicas
 
     strategy {
       rolling_update {
