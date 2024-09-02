@@ -1,6 +1,7 @@
 -- create pg bouncer role and user_search function - add to each database
 
 CREATE ROLE pgbouncer WITH PASSWORD 'pgbounceruserpass';
+ALTER ROLE pgbouncer WITH LOGIN;
 
 CREATE OR REPLACE FUNCTION user_search(uname TEXT) RETURNS TABLE (usename name, passwd text) as
 $$
@@ -724,7 +725,7 @@ CREATE INDEX IF NOT EXISTS idx_tx_metadata_collection_offers ON public.tx_metada
 
 
 
-CREATE INDEX stake_address_idx ON stake_address("view");
+CREATE INDEX IF NOT EXISTS stake_address_idx ON stake_address("view");
 
 
 --- BLOCKFROST
@@ -762,7 +763,7 @@ CREATE INDEX IF NOT EXISTS bf_idx_reference_tx_in_tx_in_id ON reference_tx_in (t
 CREATE INDEX IF NOT EXISTS bf_idx_collateral_tx_in_tx_in_id ON collateral_tx_in (tx_in_id);
 
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS bf_idx_redeemer_script_hash ON redeemer USING HASH (encode(script_hash, 'hex'));
+CREATE INDEX IF NOT EXISTS bf_idx_redeemer_script_hash ON redeemer USING HASH (encode(script_hash, 'hex'));
 
 
 CREATE INDEX IF NOT EXISTS bf_idx_redeemer_tx_id ON redeemer USING btree (tx_id);
@@ -774,4 +775,4 @@ CREATE INDEX IF NOT EXISTS bf_idx_col_tx_out ON collateral_tx_out USING btree (t
 CREATE INDEX IF NOT EXISTS bf_idx_ma_tx_mint_ident ON ma_tx_mint USING btree (ident);
 
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS bf_idx_ma_tx_out_ident ON ma_tx_out USING btree (ident);
+CREATE INDEX IF NOT EXISTS bf_idx_ma_tx_out_ident ON ma_tx_out USING btree (ident);
