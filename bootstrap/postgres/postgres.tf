@@ -84,9 +84,8 @@ resource "kubernetes_stateful_set_v1" "postgres" {
           }
 
           volume_mount {
-            mount_path = "/etc/postgresql/postgresql.conf"
+            mount_path = "/etc/postgresql"
             name       = "config"
-            sub_path   = "postgresql.conf"
           }
 
           volume_mount {
