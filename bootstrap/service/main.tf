@@ -32,3 +32,24 @@ resource "kubernetes_service_v1" "dbsync_v3_service" {
     }
   }
 }
+
+resource "kubernetes_service_v1" "postgres_service" {
+  metadata {
+    name      = "dbsync-blockfrost-postgres"
+    namespace = var.namespace
+  }
+
+  spec {
+    type = "ClusterIP"
+    selector = {
+      role                  = "postgres"
+      is_blockfrost_backend = "true"
+    }
+
+    port {
+      port        = 5432
+      target_port = 5432
+      name        = "postgres"
+    }
+  }
+}
