@@ -1,3 +1,8 @@
+locals {
+  users_volume         = "/etc/pgbouncer"
+  tiers_configmap_name = "${var.instance_name}-tiers"
+}
+
 resource "kubernetes_deployment_v1" "pgbouncer" {
   wait_for_rollout = false
   metadata {
@@ -85,14 +90,9 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
             value = "5432"
           }
 
-          env {
-            name  = "PGBOUNCER_USERLIST_FILE"
-            value = "/etc/pgbouncer/users.txt"
-          }
-
           volume_mount {
             name       = "pgbouncer-users"
-            mount_path = "/etc/pgbouncer"
+            mount_path = local.users_volume
           }
 
           volume_mount {
@@ -105,6 +105,91 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
             mount_path = "/certs"
           }
 
+        }
+
+        container {
+          name  = "pgbouncer-reloader"
+          image = "ghcr.io/demeter-run/pgbouncer-reloader:${var.pgbouncer_reloader_image_tag}"
+
+          resources {
+            limits = {
+              memory = "250Mi"
+            }
+            requests = {
+              cpu    = "100m"
+              memory = "250Mi"
+            }
+          }
+
+          env {
+            name  = "TIERS_PATH"
+            value = "/etc/tiers/tiers.toml"
+          }
+
+          env {
+            name  = "API_RESOURCE_GROUP"
+            value = "demeter.run"
+          }
+
+          env {
+            name  = "API_RESOURCE_VERSION"
+            value = "v1alpha1"
+          }
+
+          env {
+            name  = "API_RESOURCE_API_VERSION"
+            value = "demeter.run/v1alpha1"
+          }
+
+          env {
+            name  = "API_RESOURCE_KIND"
+            value = "DbSyncPort"
+          }
+
+          env {
+            name  = "API_RESOURCE_PLURAL"
+            value = "dbsyncports"
+          }
+
+          env {
+            name = "POSTGRES_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = var.postgres_secret_name
+                key  = "password"
+              }
+            }
+          }
+
+          env {
+            name  = "CONNECTION_OPTIONS"
+            value = "host=localhost user=pgbouncer password=${var.pg_bouncer_auth_user_password} dbname=pgbouncer port=6432"
+          }
+
+          env {
+            name  = "PGBOUNCER_PASSWORD"
+            value = var.pg_bouncer_auth_user_password
+          }
+
+          env {
+            name  = "USERS_INI_FILEPATH"
+            value = "${local.users_volume}/users.ini"
+          }
+
+          env {
+            name  = "USERLIST_FILEPATH"
+            value = "${local.users_volume}/userlist.txt"
+          }
+
+          volume_mount {
+            name       = "pgbouncer-users"
+            mount_path = local.users_volume
+          }
+
+          volume_mount {
+            name       = "tiers"
+            mount_path = "/etc/tiers"
+          }
         }
 
         container {
@@ -156,11 +241,23 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
 
         }
 
+        init_container {
+          name  = "init-user-files"
+          image = "busybox:1.28"
+          command = [
+            "sh", "-c",
+            "touch ${local.users_volume}/users.ini ${local.users_volume}/userlist.txt; echo '\"pgbouncer\" \"${var.pg_bouncer_auth_user_password}\"' > ${local.users_volume}/userlist.txt"
+          ]
+
+          volume_mount {
+            name       = "pgbouncer-users"
+            mount_path = local.users_volume
+          }
+        }
+
         volume {
           name = "pgbouncer-users"
-          config_map {
-            name = "${var.instance_name}-pgbouncer-users"
-          }
+          empty_dir {}
         }
 
         volume {
@@ -174,6 +271,13 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
           name = "pgbouncer-certs"
           config_map {
             name = var.certs_configmap_name
+          }
+        }
+
+        volume {
+          name = "tiers"
+          config_map {
+            name = local.tiers_configmap_name
           }
         }
 
@@ -202,14 +306,14 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
 }
 
 
-resource "kubernetes_config_map" "dbsync_pgbouncer_users" {
+resource "kubernetes_config_map" "dbsync_pgbouncer_tiers" {
   metadata {
     namespace = var.namespace
-    name      = "${var.instance_name}-pgbouncer-users"
+    name      = local.tiers_configmap_name
   }
 
   data = {
-    "users.txt" = "${templatefile("${path.module}/users.txt.tftpl", { auth_user_password = "${var.pg_bouncer_auth_user_password}", users = var.pg_bouncer_user_settings })}"
+    "tiers.toml" = file("${path.module}/tiers.toml")
   }
 }
 
@@ -221,6 +325,11 @@ resource "kubernetes_config_map" "dbsync_pgbouncer_ini_config" {
   }
 
   data = {
-    "pgbouncer.ini" = "${templatefile("${path.module}/pgbouncer.ini.tftpl", { db_host = "${var.postgres_instance_name}", users = var.pg_bouncer_user_settings })}"
+    "pgbouncer.ini" = "${templatefile("${path.module}/pgbouncer.ini.tftpl", {
+      db_host      = "${var.postgres_instance_name}",
+      users_volume = local.users_volume
+    })}"
+    # Empty file to bypass bitnami userlist bootstrapping, which we do ourselves.
+    "userlist.txt" = ""
   }
 }

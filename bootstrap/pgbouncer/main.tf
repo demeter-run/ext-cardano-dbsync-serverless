@@ -31,13 +31,8 @@ variable "certs_configmap_name" {
   default = "pgbouncer-certs"
 }
 
-variable "pg_bouncer_user_settings" {
-  default = []
-  type = list(object({
-    name            = string
-    password        = string
-    max_connections = number
-  }))
+variable "pgbouncer_reloader_image_tag" {
+  type = string
 }
 
 variable "pg_bouncer_auth_user_password" {

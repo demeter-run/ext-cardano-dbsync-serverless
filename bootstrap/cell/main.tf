@@ -34,12 +34,12 @@ module "dbsync_pgbouncer" {
   namespace                     = var.namespace
   pg_bouncer_replicas           = var.pgbouncer_replicas
   certs_configmap_name          = var.certs_configmap_name
-  pg_bouncer_user_settings      = var.pgbouncer_user_settings
   pg_bouncer_auth_user_password = var.pgbouncer_auth_user_password
   instance_role                 = "pgbouncer"
   postgres_secret_name          = var.postgres_secret_name
   instance_name                 = "postgres-dbsync-v3-${var.salt}"
   postgres_instance_name        = local.postgres_host
+  pgbouncer_reloader_image_tag  = var.pgbouncer_reloader_image_tag
 }
 
 module "dbsync_instances" {

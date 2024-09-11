@@ -10,7 +10,7 @@ listen_port=6432
 listen_addr=0.0.0.0
 unix_socket_dir=/tmp/
 unix_socket_mode=0777
-auth_file=/opt/bitnami/pgbouncer/conf/userlist.txt
+auth_file=${users_volume}/userlist.txt
 auth_type=scram-sha-256
 auth_query=SELECT usename, passwd FROM user_search($1)
 pidfile=/opt/bitnami/pgbouncer/tmp/pgbouncer.pid
@@ -29,7 +29,4 @@ tcp_keepintvl=75
 admin_users=pgbouncer
 max_db_connections=80
 [users]
-%{ for user in users ~}
-${user.name} = max_user_connections=${user.max_connections}
-%{ endfor ~}
-
+%include ${users_volume}/users.ini

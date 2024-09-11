@@ -71,16 +71,11 @@ variable "pgbouncer_replicas" {
   default = 1
 }
 
-variable "pgbouncer_user_settings" {
-  default = []
-  type = list(object({
-    name            = string
-    password        = string
-    max_connections = number
-  }))
+variable "pgbouncer_auth_user_password" {
+  type = string
 }
 
-variable "pgbouncer_auth_user_password" {
+variable "pgbouncer_reloader_image_tag" {
   type = string
 }
 
