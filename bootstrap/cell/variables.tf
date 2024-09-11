@@ -84,6 +84,10 @@ variable "pgbouncer_auth_user_password" {
   type = string
 }
 
+variable "pgbouncer_reloader_image_tag" {
+  type = string
+}
+
 // Instance
 variable "instances" {
   type = map(object({

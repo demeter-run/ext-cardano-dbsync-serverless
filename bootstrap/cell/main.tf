@@ -40,6 +40,7 @@ module "dbsync_pgbouncer" {
   postgres_secret_name          = var.postgres_secret_name
   instance_name                 = "postgres-dbsync-v3-${var.salt}"
   postgres_instance_name        = local.postgres_host
+  pgbouncer_reloader_image_tag  = var.pgbouncer_reloader_image_tag
 }
 
 module "dbsync_instances" {

@@ -39,6 +39,10 @@ variable "pgbouncer_server_key" {
   type = string
 }
 
+variable "pgbouncer_reloader_image_tag" {
+  type = string
+}
+
 variable "postgres_hosts" {
   type    = list(string)
   default = null
@@ -125,7 +129,7 @@ variable "cells" {
       empty_args            = optional(bool, false)
       custom_config         = optional(bool, true)
       network_env_var       = optional(string, false)
-      topology_zone = optional(string)
+      topology_zone         = optional(string)
       dbsync_resources = optional(object({
         requests = map(string)
         limits   = map(string)

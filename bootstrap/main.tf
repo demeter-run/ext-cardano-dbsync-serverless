@@ -55,6 +55,7 @@ module "dbsync_cells" {
   pgbouncer_replicas           = each.value.pgbouncer.replicas
   pgbouncer_user_settings      = var.pgbouncer_user_settings
   pgbouncer_auth_user_password = var.pgbouncer_auth_user_password
+  pgbouncer_reloader_image_tag = var.pgbouncer_reloader_image_tag
 
   // Instances
   instances = each.value.instances
