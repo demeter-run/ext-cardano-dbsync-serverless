@@ -77,15 +77,6 @@ variable "pgbouncer_image_tag" {
   default = "1.21.0"
 }
 
-variable "pgbouncer_user_settings" {
-  default = []
-  type = list(object({
-    name            = string
-    password        = string
-    max_connections = number
-  }))
-}
-
 variable "pgbouncer_auth_user_password" {
   type = string
 }

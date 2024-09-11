@@ -274,6 +274,13 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
           }
         }
 
+        volume {
+          name = "tiers"
+          config_map {
+            name = local.tiers_configmap_name
+          }
+        }
+
         toleration {
           effect   = "NoSchedule"
           key      = "demeter.run/compute-profile"
