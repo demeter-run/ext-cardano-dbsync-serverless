@@ -31,6 +31,10 @@ variable "topology_zone" {
   type = string
 }
 
+variable "is_blockfrost_backend" {
+  type = bool
+}
+
 variable "postgres_image_tag" {
   type = string
 }

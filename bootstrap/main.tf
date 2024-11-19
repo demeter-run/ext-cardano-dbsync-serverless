@@ -44,11 +44,12 @@ module "dbsync_cells" {
   db_volume_claim = each.value.pvc.name
 
   // PG
-  topology_zone        = each.value.postgres.topology_zone
-  postgres_image_tag   = each.value.postgres.image_tag
-  postgres_secret_name = var.postgres_secret_name
-  postgres_resources   = each.value.postgres.resources
-  postgres_config_name = each.value.postgres.config_name
+  topology_zone         = each.value.postgres.topology_zone
+  is_blockfrost_backend = each.value.postgres.is_blockfrost_backend
+  postgres_image_tag    = each.value.postgres.image_tag
+  postgres_secret_name  = var.postgres_secret_name
+  postgres_resources    = each.value.postgres.resources
+  postgres_config_name  = each.value.postgres.config_name
 
   // PGBouncer
   pgbouncer_image_tag          = var.pgbouncer_image_tag

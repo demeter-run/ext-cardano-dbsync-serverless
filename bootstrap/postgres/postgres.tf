@@ -21,7 +21,7 @@ resource "kubernetes_stateful_set_v1" "postgres" {
         labels = {
           "demeter.run/instance" = var.instance_name
           role                   = "postgres"
-          is_blockfrost_backend  = "true"
+          is_blockfrost_backend  = var.is_blockfrost_backend ? "true" : "false"
         }
       }
       spec {

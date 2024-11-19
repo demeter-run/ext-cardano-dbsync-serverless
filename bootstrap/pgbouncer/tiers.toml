@@ -6,7 +6,7 @@ name = "1"
 max_connections = 3
 [[tiers]]
 name = "2"
-max_connections = 10
+max_connections = 15
 [[tiers]]
 name = "3"
 max_connections = 40

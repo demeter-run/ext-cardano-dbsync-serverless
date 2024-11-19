@@ -89,9 +89,10 @@ variable "cells" {
       name         = optional(string)
     })
     postgres = object({
-      image_tag     = string
-      topology_zone = string
-      config_name   = optional(string)
+      image_tag             = string
+      topology_zone         = string
+      is_blockfrost_backend = bool
+      config_name           = optional(string)
       resources = object({
         limits = object({
           cpu    = string
