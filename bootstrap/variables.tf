@@ -116,8 +116,6 @@ variable "cells" {
       release               = string
       sync_status           = string
       enable_postgrest      = bool
-      compute_arch          = optional(string)
-      compute_profile       = optional(string)
       empty_args            = optional(bool, false)
       custom_config         = optional(bool, true)
       network_env_var       = optional(string, false)
@@ -130,6 +128,12 @@ variable "cells" {
         storage_class = string
         size          = string
       }))
+      tolerations = optional(list(object({
+        effect   = string
+        key      = string
+        operator = string
+        value    = optional(string)
+      })))
     }))
   }))
 }

@@ -15,12 +15,15 @@
      ]
   ],
   "minSeverity":"Info",
+  "insertOptions": {
+    "offchainPoolData": "enable"
+  },
   "options":{
      "cfokey":{
         "value":"Release-1.0.0"
      },
      "mapBackends":{
-        
+
      },
      "mapSeverity":{
         "db-sync-node":"Info",

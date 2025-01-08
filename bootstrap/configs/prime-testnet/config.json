@@ -6,7 +6,7 @@
   "ByronGenesisHash": "acd3e7c4cc071ae176fa253e654f0dd4e759892b16e958d8bd3c393f5c6c66d2",
   "ShelleyGenesisHash": "0b67b0cb16e973478888efb1c7f69fca8e80489369afed94624a588e94a94f2b",
   "AlonzoGenesisHash": "0f715ff78fcab739c6cb2cc1073eb87d0ffe3514218bfa0337d416f6fbaf7886",
-  "ConwayGenesisHash": "d43d3f38e01848bddf67e66fe29fbd236aca252de58c7f2c1904c67107c17842",
+  "ConwayGenesisHash": "47d7c396e8a58db4ae61dfbc1d47f9e9b786defb1d5b1a76c850a436e9017aff",
   "SocketPath": "db/node.socket",
   "ApplicationName":"cardano-sl",
   "ApplicationVersion":0,
