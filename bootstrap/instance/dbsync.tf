@@ -266,33 +266,15 @@ resource "kubernetes_deployment_v1" "db_sync" {
           }
         }
 
+        dynamic "toleration" {
+          for_each = var.tolerations
 
-        toleration {
-          key      = "demeter.run/workload"
-          operator = "Equal"
-          value    = "mem-intensive"
-          effect   = "NoSchedule"
-        }
-
-        toleration {
-          effect   = "NoSchedule"
-          key      = "demeter.run/compute-profile"
-          operator = "Equal"
-          value    = var.compute_profile
-        }
-
-        toleration {
-          effect   = "NoSchedule"
-          key      = "demeter.run/compute-arch"
-          operator = "Equal"
-          value    = var.compute_arch
-        }
-
-        toleration {
-          effect   = "NoSchedule"
-          key      = "demeter.run/availability-sla"
-          operator = "Equal"
-          value    = var.availability_sla
+          content {
+            effect   = toleration.value.effect
+            key      = toleration.value.key
+            operator = toleration.value.operator
+            value    = toleration.value.value
+          }
         }
       }
     }

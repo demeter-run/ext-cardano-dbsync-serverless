@@ -30,6 +30,9 @@
        "stdout"
      ]
    ],
+   "insertOptions": {
+     "offchainPoolData": "enable"
+   },
    "options": {
      "cfokey": {
        "value": "Release-1.0.0"
