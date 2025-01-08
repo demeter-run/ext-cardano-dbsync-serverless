@@ -1,13 +1,22 @@
 # Job to create indexes on dbsync instance.
 #
-# This is difficult to automatize because it has to be ran after the postgres is created 
-# and dbsync has ran, but before anyone uses it. Here you have to replace the salt and the 
-# network for it to work.
+# This is difficult to automatize because it has to be ran after the postgres
+# is created and dbsync has ran, but before anyone uses it. Here you have to
+# replace the salt, pgbouncerpassword and the network for it to work.
 ---
 apiVersion: v1
 data:
   indexes.sql: |
     CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
+    -- PGBouncer
+    CREATE ROLE pgbouncer WITH PASSWORD '{pgbouncerpassword}';
+    ALTER ROLE pgbouncer WITH LOGIN;
+    CREATE OR REPLACE FUNCTION user_search(uname TEXT) RETURNS TABLE (usename name, passwd text) as
+    $$
+      SELECT usename, passwd FROM pg_shadow WHERE usename=uname;
+    $$
+    LANGUAGE sql SECURITY DEFINER;
 
     -- dbsync indexes
     CREATE UNIQUE INDEX IF NOT EXISTS ada_pots_pkey ON public.ada_pots USING btree (id);
@@ -202,6 +211,8 @@ data:
     CREATE INDEX IF NOT EXISTS bf_idx_col_tx_out ON collateral_tx_out USING btree (tx_id);
     CREATE INDEX IF NOT EXISTS bf_idx_ma_tx_mint_ident ON ma_tx_mint USING btree (ident);
     CREATE INDEX IF NOT EXISTS bf_idx_ma_tx_out_ident ON ma_tx_out USING btree (ident);
+
+    ANALYZE VERBOSE;
 immutable: false
 kind: ConfigMap
 metadata:
