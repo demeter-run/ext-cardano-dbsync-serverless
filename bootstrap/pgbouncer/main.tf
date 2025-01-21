@@ -6,6 +6,10 @@ variable "instance_name" {
   default = "dbsync-v3-pgbouncer"
 }
 
+variable "cloud_provider" {
+  default = "aws"
+}
+
 variable "service_name" {
   default = "dbsync-v3-pgbouncer"
 }
@@ -55,8 +59,8 @@ variable "postgres_instance_name" {
   default = "postgres-dbsync-v3-ar9"
 }
 
-resource "kubernetes_service_v1" "dbsync_pgbouncer_elb" {
-  count = var.load_balancer ? 1 : 0
+resource "kubernetes_service_v1" "dbsync_pgbouncer_elb_aws" {
+  for_each = var.load_balancer ? (var.cloud_provider == "aws" ? toset(["loadbalancer"]) : toset([])) : toset([])
   metadata {
     namespace = var.namespace
     name      = var.service_name
@@ -81,4 +85,58 @@ resource "kubernetes_service_v1" "dbsync_pgbouncer_elb" {
       "role" = var.instance_role
     }
   }
+}
+
+resource "kubernetes_service_v1" "dbsync_pgbouncer_elb_gcp" {
+  for_each = var.load_balancer ? (var.cloud_provider == "gcp" ? toset(["loadbalancer"]) : toset([])) : toset([])
+  metadata {
+    namespace = var.namespace
+    name      = var.service_name
+    annotations = {
+      "cloud.google.com/l4-rbs" : "enabled"
+    }
+  }
+
+  spec {
+    type                    = "LoadBalancer"
+    external_traffic_policy = "Local"
+
+    port {
+      protocol    = "TCP"
+      port        = 5432
+      target_port = 6432
+    }
+
+    selector = {
+      "role" = var.instance_role
+    }
+  }
+}
+
+variable "pgbouncer_tolerations" {
+  type = list(object({
+    effect   = string
+    key      = string
+    operator = string
+    value    = optional(string)
+  }))
+  default = [
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/compute-profile"
+      operator = "Exists"
+    },
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/compute-arch"
+      operator = "Equal"
+      value    = "x86"
+    },
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/availability-sla"
+      operator = "Equal"
+      value    = "best-effort"
+    }
+  ]
 }

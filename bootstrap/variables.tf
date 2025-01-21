@@ -2,6 +2,10 @@ variable "namespace" {
   type = string
 }
 
+variable "cloud_provider" {
+  type = string
+}
+
 // Feature
 variable "operator_image_tag" {
   type = string
@@ -84,9 +88,11 @@ variable "pgbouncer_auth_user_password" {
 variable "cells" {
   type = map(object({
     pvc = object({
-      volume_name  = string
-      storage_size = string
-      name         = optional(string)
+      volume_name        = optional(string)
+      storage_size       = string
+      storage_class_name = string
+      access_mode        = string
+      name               = optional(string)
     })
     postgres = object({
       image_tag             = string
@@ -103,9 +109,25 @@ variable "cells" {
           memory = string
         })
       })
+      tolerations = optional(list(object({
+        key      = string
+        operator = string
+        value    = string
+        effect   = string
+      })))
     })
     pgbouncer = object({
-      replicas = number
+      replicas           = number
+      reloader_image_tag = optional(string)
+      auth_user_password = optional(string)
+      load_balancer      = optional(bool, false)
+      certs_secret_name  = optional(string, "pgbouncer-certs")
+      tolerations = optional(list(object({
+        key      = string
+        operator = string
+        value    = string
+        effect   = string
+      })))
     })
     instances = map(object({
       salt                  = optional(string)

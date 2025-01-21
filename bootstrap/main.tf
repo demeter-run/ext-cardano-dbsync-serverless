@@ -23,10 +23,10 @@ module "dbsync_feature" {
 
 // Service
 module "dbsync_service" {
-  depends_on = [kubernetes_namespace.namespace]
-  source     = "./service"
-
-  namespace = var.namespace
+  depends_on     = [kubernetes_namespace.namespace]
+  source         = "./service"
+  cloud_provider = var.cloud_provider
+  namespace      = var.namespace
 }
 
 // Cells
@@ -39,9 +39,11 @@ module "dbsync_cells" {
   salt      = each.key
 
   // PVC
-  volume_name     = each.value.pvc.volume_name
-  storage_size    = each.value.pvc.storage_size
-  db_volume_claim = each.value.pvc.name
+  access_mode        = each.value.pvc.access_mode
+  db_volume_claim    = each.value.pvc.name
+  storage_class_name = each.value.pvc.storage_class_name
+  storage_size       = each.value.pvc.storage_size
+  volume_name        = each.value.pvc.volume_name
 
   // PG
   topology_zone         = each.value.postgres.topology_zone
@@ -50,12 +52,17 @@ module "dbsync_cells" {
   postgres_secret_name  = var.postgres_secret_name
   postgres_resources    = each.value.postgres.resources
   postgres_config_name  = each.value.postgres.config_name
+  postgres_tolerations  = each.value.postgres.tolerations
 
   // PGBouncer
+  certs_secret_name            = each.value.pgbouncer.certs_secret_name
+  pgbouncer_cloud_provider     = var.cloud_provider
   pgbouncer_image_tag          = var.pgbouncer_image_tag
+  pgbouncer_load_balancer      = each.value.pgbouncer.load_balancer
   pgbouncer_replicas           = each.value.pgbouncer.replicas
   pgbouncer_auth_user_password = var.pgbouncer_auth_user_password
   pgbouncer_reloader_image_tag = var.pgbouncer_reloader_image_tag
+  pgbouncer_tolerations        = each.value.pgbouncer.tolerations
 
   // Instances
   instances = each.value.instances
