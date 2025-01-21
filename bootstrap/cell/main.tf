@@ -34,16 +34,19 @@ locals {
   ]
 }
 module "dbsync_pvc" {
-  source       = "../pvc"
-  namespace    = var.namespace
-  volume_name  = var.volume_name
-  storage_size = var.storage_size
-  name         = local.db_volume_claim
+  source             = "../pvc"
+  namespace          = var.namespace
+  access_mode        = var.access_mode
+  volume_name        = var.volume_name
+  storage_class_name = var.storage_class_name
+  storage_size       = var.storage_size
+  name               = local.db_volume_claim
 }
 
 module "dbsync_postgres" {
   source = "../postgres"
 
+  for_each              = var.enable_postgres ? { "enabled" = true } : {}
   namespace             = var.namespace
   db_volume_claim       = local.db_volume_claim
   instance_name         = local.postgres_host
@@ -53,11 +56,13 @@ module "dbsync_postgres" {
   postgres_secret_name  = var.postgres_secret_name
   postgres_resources    = var.postgres_resources
   is_blockfrost_backend = var.is_blockfrost_backend
+  postgres_tolerations  = var.postgres_tolerations
 }
 
 module "dbsync_pgbouncer" {
   source = "../pgbouncer"
 
+  for_each                      = var.enable_pgbouncer ? { "enabled" = true } : {}
   namespace                     = var.namespace
   pg_bouncer_replicas           = var.pgbouncer_replicas
   certs_secret_name             = var.certs_secret_name
@@ -67,6 +72,7 @@ module "dbsync_pgbouncer" {
   instance_name                 = "postgres-dbsync-v3-${var.salt}"
   postgres_instance_name        = local.postgres_host
   pgbouncer_reloader_image_tag  = var.pgbouncer_reloader_image_tag
+  pgbouncer_tolerations         = var.pgbouncer_tolerations
 }
 
 module "dbsync_instances" {
@@ -82,12 +88,10 @@ module "dbsync_instances" {
   release                = each.value.release
   topology_zone          = coalesce(each.value.topology_zone, var.topology_zone)
   sync_status            = each.value.sync_status
-  empty_args             = coalesce(each.value.empty_args, false)
   custom_config          = coalesce(each.value.custom_config, true)
-  network_env_var        = coalesce(each.value.network_env_var, false)
   enable_postgrest       = each.value.enable_postgrest
-  postgres_database      = "dbsync-${each.value.network}"
-  postgres_instance_name = local.postgres_host
+  postgres_database      = "dbsync_${each.value.network}"
+  postgres_instance_name = coalesce(each.value.postgres_instance_name, local.postgres_host)
   postgres_secret_name   = var.postgres_secret_name
 
   dbsync_resources = coalesce(each.value.dbsync_resources, {

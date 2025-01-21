@@ -2,6 +2,15 @@ variable "namespace" {
   type = string
 }
 
+variable "create_namespace" {
+  type    = bool
+  default = false
+}
+
+variable "cloud_provider" {
+  type = string
+}
+
 // Feature
 variable "operator_image_tag" {
   type = string
@@ -48,6 +57,11 @@ variable "postgres_hosts" {
   default = null
 }
 
+variable "postgres_host" {
+  type    = string
+  default = null
+}
+
 variable "operator_resources" {
   type = object({
     limits = object({
@@ -71,6 +85,16 @@ variable "operator_resources" {
   }
 }
 
+variable "enable_postgres" {
+  type    = bool
+  default = true
+}
+
+variable "enable_pgbouncer" {
+  type    = bool
+  default = true
+}
+
 // PGBouncer
 variable "pgbouncer_image_tag" {
   type    = string
@@ -84,11 +108,13 @@ variable "pgbouncer_auth_user_password" {
 variable "cells" {
   type = map(object({
     pvc = object({
-      volume_name  = string
-      storage_size = string
-      name         = optional(string)
+      volume_name        = optional(string)
+      storage_size       = string
+      storage_class_name = string
+      access_mode        = string
+      name               = optional(string)
     })
-    postgres = object({
+    postgres = optional(object({
       image_tag             = string
       topology_zone         = string
       is_blockfrost_backend = bool
@@ -103,23 +129,39 @@ variable "cells" {
           memory = string
         })
       })
-    })
-    pgbouncer = object({
-      replicas = number
-    })
+      tolerations = optional(list(object({
+        key      = string
+        operator = string
+        value    = string
+        effect   = string
+      })))
+    }))
+    pgbouncer = optional(object({
+      replicas           = number
+      reloader_image_tag = optional(string)
+      auth_user_password = optional(string)
+      certs_secret_name  = optional(string, "pgbouncer-certs")
+      load_balancer      = optional(bool, false)
+      tolerations = optional(list(object({
+        key      = string
+        operator = string
+        value    = string
+        effect   = string
+      })))
+    }))
     instances = map(object({
-      salt                  = optional(string)
-      network               = string
-      dbsync_image          = optional(string)
-      dbsync_image_tag      = string
-      node_n2n_tcp_endpoint = string
-      release               = string
-      sync_status           = string
-      enable_postgrest      = bool
-      empty_args            = optional(bool, false)
-      custom_config         = optional(bool, true)
-      network_env_var       = optional(string, false)
-      topology_zone         = optional(string)
+      salt                   = optional(string)
+      network                = string
+      dbsync_image           = optional(string)
+      dbsync_image_tag       = string
+      node_n2n_tcp_endpoint  = string
+      release                = string
+      sync_status            = string
+      enable_postgrest       = bool
+      args                   = optional(list(string), [])
+      custom_config          = optional(bool, true)
+      topology_zone          = optional(string)
+      postgres_instance_name = optional(string)
       dbsync_resources = optional(object({
         requests = map(string)
         limits   = map(string)
