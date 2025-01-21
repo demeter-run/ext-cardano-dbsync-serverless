@@ -34,11 +34,13 @@ locals {
   ]
 }
 module "dbsync_pvc" {
-  source       = "../pvc"
-  namespace    = var.namespace
-  volume_name  = var.volume_name
-  storage_size = var.storage_size
-  name         = local.db_volume_claim
+  source             = "../pvc"
+  namespace          = var.namespace
+  access_mode        = var.access_mode
+  volume_name        = var.volume_name
+  storage_class_name = var.storage_class_name
+  storage_size       = var.storage_size
+  name               = local.db_volume_claim
 }
 
 module "dbsync_postgres" {
@@ -53,6 +55,7 @@ module "dbsync_postgres" {
   postgres_secret_name  = var.postgres_secret_name
   postgres_resources    = var.postgres_resources
   is_blockfrost_backend = var.is_blockfrost_backend
+  postgres_tolerations  = coalesce(var.postgres_tolerations, local.default_tolerations)
 }
 
 module "dbsync_pgbouncer" {
