@@ -39,9 +39,11 @@ module "dbsync_cells" {
   salt      = each.key
 
   // PVC
-  volume_name     = each.value.pvc.volume_name
-  storage_size    = each.value.pvc.storage_size
-  db_volume_claim = each.value.pvc.name
+  access_mode        = each.value.pvc.access_mode
+  db_volume_claim    = each.value.pvc.name
+  storage_class_name = each.value.pvc.storage_class_name
+  storage_size       = each.value.pvc.storage_size
+  volume_name        = each.value.pvc.volume_name
 
   // PG
   topology_zone         = each.value.postgres.topology_zone

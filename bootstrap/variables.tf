@@ -84,9 +84,11 @@ variable "pgbouncer_auth_user_password" {
 variable "cells" {
   type = map(object({
     pvc = object({
-      volume_name  = string
-      storage_size = string
-      name         = optional(string)
+      volume_name        = string
+      storage_size       = string
+      storage_class_name = string
+      access_mode        = string
+      name               = optional(string)
     })
     postgres = object({
       image_tag             = string

@@ -21,6 +21,14 @@ variable "storage_size" {
   type = string
 }
 
+variable "storage_class_name" {
+  type = string
+}
+
+variable "access_mode" {
+  type = string
+}
+
 variable "db_volume_claim" {
   type    = string
   default = null
@@ -64,6 +72,35 @@ variable "postgres_secret_name" {
 variable "postgres_config_name" {
   type    = string
   default = null
+}
+
+variable "postgres_tolerations" {
+  type = list(object({
+    key      = string
+    operator = string
+    value    = string
+    effect   = string
+  }))
+  default = [
+    {
+      key      = "demeter.run/compute-profile"
+      operator = "Equal"
+      value    = "disk-intensive"
+      effect   = "NoSchedule"
+    },
+    {
+      key      = "demeter.run/compute-arch"
+      operator = "Equal"
+      value    = "x86"
+      effect   = "NoSchedule"
+    },
+    {
+      key      = "demeter.run/availability-sla"
+      operator = "Equal"
+      value    = "consistent"
+      effect   = "NoSchedule"
+    }
+  ]
 }
 
 // PGBouncer
