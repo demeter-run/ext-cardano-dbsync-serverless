@@ -8,3 +8,15 @@ resource "kubernetes_secret" "postgres" {
   }
   type = "Opaque"
 }
+
+resource "kubernetes_secret" "pgbouncer_certs" {
+  metadata {
+    namespace = var.namespace
+    name      = "pgbouncer-certs"
+  }
+
+  data = {
+    "tls.crt" = var.pgbouncer_server_crt
+    "tls.key" = var.pgbouncer_server_key
+  }
+}

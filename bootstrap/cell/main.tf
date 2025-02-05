@@ -60,7 +60,7 @@ module "dbsync_pgbouncer" {
 
   namespace                     = var.namespace
   pg_bouncer_replicas           = var.pgbouncer_replicas
-  certs_configmap_name          = var.certs_configmap_name
+  certs_secret_name             = var.certs_secret_name
   pg_bouncer_auth_user_password = var.pgbouncer_auth_user_password
   instance_role                 = "pgbouncer"
   postgres_secret_name          = var.postgres_secret_name
