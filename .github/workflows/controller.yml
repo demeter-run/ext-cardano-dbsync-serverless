@@ -41,14 +41,12 @@ jobs:
           toolchain: stable
 
       - name: Run cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --target ${{ matrix.target }} ${{ matrix.args }}
+        run: cargo build --target ${{ matrix.target }} ${{ matrix.args }}
+        working-directory: operator
 
       - name: rename binaries
         run: |
-          mv target/${{ matrix.target }}/release/controller${{ matrix.ext }} controller-${{ matrix.release_for }}${{ matrix.ext }}
+          mv operator/target/${{ matrix.target }}/release/controller${{ matrix.ext }} controller-${{ matrix.release_for }}${{ matrix.ext }}
 
       - name: upload artifacts
         uses: actions/upload-artifact@v4
