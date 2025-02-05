@@ -26,7 +26,7 @@ variable "load_balancer" {
   default = false
 }
 
-variable "certs_configmap_name" {
+variable "certs_secret_name" {
   type    = string
   default = "pgbouncer-certs"
 }

@@ -269,8 +269,8 @@ resource "kubernetes_deployment_v1" "pgbouncer" {
 
         volume {
           name = "pgbouncer-certs"
-          config_map {
-            name = var.certs_configmap_name
+          secret {
+            secret_name = var.certs_secret_name
           }
         }
 

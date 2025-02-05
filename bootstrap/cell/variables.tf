@@ -7,7 +7,7 @@ variable "salt" {
   description = "Salt used to identify all components as part of the cell. Should be unique between cells."
 }
 
-variable "certs_configmap_name" {
+variable "certs_secret_name" {
   type    = string
   default = "pgbouncer-certs"
 }
