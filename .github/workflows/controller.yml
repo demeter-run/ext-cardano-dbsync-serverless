@@ -32,6 +32,7 @@ jobs:
         uses: actions/checkout@v4
 
       - uses: Swatinem/rust-cache@v2
+        working-directory: operator
         with:
           shared-key: "release"
 
@@ -96,4 +97,4 @@ jobs:
           context: .github/image
           platforms: linux/arm64,linux/amd64
           push: true
-          tags: ghcr.io/demeter-run/ext-cardano-dbsync-serverless,ghcr.io/ext-cardano-dbsync-serverless:${{ github.sha }}
+          tags: ghcr.io/demeter-run/ext-cardano-dbsync-serverless,ghcr.io/demeter-run/ext-cardano-dbsync-serverless:${{ github.sha }}
