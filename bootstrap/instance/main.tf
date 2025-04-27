@@ -8,7 +8,6 @@ terraform {
 
 variable "namespace" {}
 
-
 variable "dbsync_image" {
   type    = string
   default = "ghcr.io/demeter-run/dbsync"
@@ -17,7 +16,9 @@ variable "dbsync_image_tag" {
   default = "132ffd0007054bfadd17b23ed608529447833b99"
 }
 
-variable "network" {}
+variable "network" {
+  type = string
+}
 
 variable "salt" {
   type = string
@@ -101,16 +102,13 @@ variable "availability_sla" {
   default = "consistent"
 }
 
-variable "empty_args" {
-  default = false
+variable "args" {
+  type    = list(string)
+  default = []
 }
 
 variable "custom_config" {
   default = true
-}
-
-variable "network_env_var" {
-  default = false
 }
 
 variable "tolerations" {

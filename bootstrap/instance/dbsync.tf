@@ -152,10 +152,7 @@ resource "kubernetes_deployment_v1" "db_sync" {
             requests = var.dbsync_resources.requests
           }
 
-          args = var.empty_args ? [] : [
-            "--config /etc/dbsync/db-sync-config.json",
-            "--socket-path /node-ipc/node.socket",
-          ]
+          args = var.args
 
           env {
             name  = "POSTGRES_USER"
@@ -194,7 +191,7 @@ resource "kubernetes_deployment_v1" "db_sync" {
 
           env {
             name  = "NETWORK"
-            value = var.network_env_var ? var.network : ""
+            value = var.network
           }
 
           dynamic "env" {

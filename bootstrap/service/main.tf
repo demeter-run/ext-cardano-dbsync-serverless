@@ -2,11 +2,25 @@ variable "namespace" {
   type = string
 }
 
+variable "cloud_provider" {
+  default = "aws"
+}
+
+variable "instance_role" {
+  type    = string
+  default = "pgbouncer"
+}
+
+variable "load_balancer" {
+  default = false
+}
+
 variable "service_name" {
   default = "dbsync-v3-pgbouncer"
 }
 
-resource "kubernetes_service_v1" "dbsync_v3_service" {
+resource "kubernetes_service_v1" "dbsync_v3_service_aws" {
+  for_each = var.cloud_provider == "aws" ? toset(["loadbalancer"]) : toset([])
   metadata {
     namespace = var.namespace
     name      = var.service_name
@@ -29,6 +43,36 @@ resource "kubernetes_service_v1" "dbsync_v3_service" {
 
     selector = {
       "role" = "pgbouncer"
+    }
+  }
+}
+
+resource "kubernetes_service_v1" "dbsync_v3_service_gcp" {
+  for_each = var.cloud_provider == "gcp" ? toset(["loadbalancer"]) : toset([])
+  metadata {
+    namespace = var.namespace
+    name      = var.service_name
+    annotations = {
+      "cloud.google.com/l4-rbs" : "enabled"
+      # Added for terraform not to complain on every apply
+      "cloud.google.com/neg" = jsonencode({
+        ingress = true
+      })
+    }
+  }
+
+  spec {
+    type                    = "LoadBalancer"
+    external_traffic_policy = "Local"
+
+    port {
+      protocol    = "TCP"
+      port        = 5432
+      target_port = 6432
+    }
+
+    selector = {
+      "role" = var.instance_role
     }
   }
 }
