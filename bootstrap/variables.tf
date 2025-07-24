@@ -116,6 +116,7 @@ variable "cells" {
       release               = string
       sync_status           = string
       enable_postgrest      = bool
+      replicas              = optional(number)
       empty_args            = optional(bool, false)
       custom_config         = optional(bool, true)
       network_env_var       = optional(string, false)

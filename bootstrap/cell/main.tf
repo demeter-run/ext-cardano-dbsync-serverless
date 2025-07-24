@@ -80,6 +80,7 @@ module "dbsync_instances" {
   dbsync_image_tag       = each.value.dbsync_image_tag
   node_n2n_tcp_endpoint  = each.value.node_n2n_tcp_endpoint
   release                = each.value.release
+  replicas               = coalesce(each.value.replicas, 1)
   topology_zone          = coalesce(each.value.topology_zone, var.topology_zone)
   sync_status            = each.value.sync_status
   empty_args             = coalesce(each.value.empty_args, false)

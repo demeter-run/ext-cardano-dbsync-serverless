@@ -93,6 +93,7 @@ variable "instances" {
     node_n2n_tcp_endpoint = string
     release               = string
     sync_status           = string
+    replicas              = optional(number)
     enable_postgrest      = bool
     topology_zone         = optional(string)
     empty_args            = optional(bool, false)

@@ -23,6 +23,11 @@ variable "salt" {
   type = string
 }
 
+variable "replicas" {
+  type    = number
+  default = 1
+}
+
 variable "topology_zone" {}
 
 variable "node_n2n_tcp_endpoint" {

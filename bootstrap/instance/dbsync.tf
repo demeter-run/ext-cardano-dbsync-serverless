@@ -33,7 +33,7 @@ resource "kubernetes_deployment_v1" "db_sync" {
   }
 
   spec {
-    replicas = 1
+    replicas = var.replicas
 
     strategy {
       type = "Recreate"
