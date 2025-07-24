@@ -253,8 +253,7 @@ async fn collect_prometheus_metrics(
     if status.is_client_error() || status.is_server_error() {
         error!(status = status.to_string(), "request status code fail");
         return Err(Error::HttpError(format!(
-            "Prometheus request error. Status: {} Query: {}",
-            status, query
+            "Prometheus request error. Status: {status} Query: {query}"
         )));
     }
 
