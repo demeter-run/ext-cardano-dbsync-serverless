@@ -89,9 +89,10 @@ variable "cells" {
       name         = optional(string)
     })
     postgres = object({
-      image_tag     = string
-      topology_zone = string
-      config_name   = optional(string)
+      image_tag             = string
+      topology_zone         = string
+      is_blockfrost_backend = bool
+      config_name           = optional(string)
       resources = object({
         limits = object({
           cpu    = string
@@ -115,8 +116,7 @@ variable "cells" {
       release               = string
       sync_status           = string
       enable_postgrest      = bool
-      compute_arch          = optional(string)
-      compute_profile       = optional(string)
+      replicas              = optional(number)
       empty_args            = optional(bool, false)
       custom_config         = optional(bool, true)
       network_env_var       = optional(string, false)
@@ -129,6 +129,12 @@ variable "cells" {
         storage_class = string
         size          = string
       }))
+      tolerations = optional(list(object({
+        effect   = string
+        key      = string
+        operator = string
+        value    = optional(string)
+      })))
     }))
   }))
 }

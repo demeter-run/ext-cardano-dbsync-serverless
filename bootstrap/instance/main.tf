@@ -10,7 +10,7 @@ variable "namespace" {}
 
 
 variable "dbsync_image" {
-  type = string
+  type    = string
   default = "ghcr.io/demeter-run/dbsync"
 }
 variable "dbsync_image_tag" {
@@ -21,6 +21,11 @@ variable "network" {}
 
 variable "salt" {
   type = string
+}
+
+variable "replicas" {
+  type    = number
+  default = 1
 }
 
 variable "topology_zone" {}
@@ -111,6 +116,41 @@ variable "custom_config" {
 
 variable "network_env_var" {
   default = false
+}
+
+variable "tolerations" {
+  type = list(object({
+    effect   = string
+    key      = string
+    operator = string
+    value    = optional(string)
+  }))
+  default = [
+    {
+      key      = "demeter.run/workload"
+      operator = "Equal"
+      value    = "mem-intensive"
+      effect   = "NoSchedule"
+    },
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/compute-profile"
+      operator = "Equal"
+      value    = "mem-intensive"
+    },
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/compute-arch"
+      operator = "Equal"
+      value    = "arm64"
+    },
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/availability-sla"
+      operator = "Equal"
+      value    = "consistent"
+    }
+  ]
 }
 
 module "configs" {

@@ -1,7 +1,7 @@
 #!/bin/bash
 export PGSSLMODE=disable
 export PG_SUPERUSER=postgres
-export PGPASSWORD=""
+export PGPASSWORD="."
 export PG_NEW_USER=""
 export PG_NEW_USER_PASSWORD=""
 export PGHOST=localhost
@@ -15,7 +15,7 @@ if [ -z "$PG_SUPERUSER" ] || [ -z "$PGPASSWORD" ] || [ -z "$PG_NEW_USER" ] || [ 
 fi
 
 # Target databases
-databases=("dbsync-mainnet" "dbsync-preview" "dbsync-preprod")
+databases=("dbsync-mainnet" "dbsync-preview" "dbsync-preprod" "dbsync-vector-testnet" "dbsync-prime-testnet")
 
 # Create the new user
 echo "Creating user: $PG_NEW_USER"

@@ -7,7 +7,7 @@ variable "salt" {
   description = "Salt used to identify all components as part of the cell. Should be unique between cells."
 }
 
-variable "certs_configmap_name" {
+variable "certs_secret_name" {
   type    = string
   default = "pgbouncer-certs"
 }
@@ -29,6 +29,10 @@ variable "db_volume_claim" {
 // Postgres
 variable "topology_zone" {
   type = string
+}
+
+variable "is_blockfrost_backend" {
+  type = bool
 }
 
 variable "postgres_image_tag" {
@@ -89,10 +93,8 @@ variable "instances" {
     node_n2n_tcp_endpoint = string
     release               = string
     sync_status           = string
+    replicas              = optional(number)
     enable_postgrest      = bool
-    availability_sla      = optional(string)
-    compute_profile       = optional(string)
-    compute_arch          = optional(string)
     topology_zone         = optional(string)
     empty_args            = optional(bool, false)
     custom_config         = optional(bool, true)
@@ -105,6 +107,12 @@ variable "instances" {
       storage_class = string
       size          = string
     }))
+    tolerations = optional(list(object({
+      effect   = string
+      key      = string
+      operator = string
+      value    = optional(string)
+    })))
   }))
 }
 

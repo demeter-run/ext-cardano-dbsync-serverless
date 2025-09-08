@@ -6,7 +6,7 @@ use tracing::error;
 
 use std::{
     collections::HashMap,
-    io::{self, ErrorKind},
+    io::{self},
 };
 
 #[derive(Error, Debug)]
@@ -44,7 +44,7 @@ impl Error {
 
 impl From<Error> for io::Error {
     fn from(value: Error) -> Self {
-        Self::new(ErrorKind::Other, value)
+        Self::other(value)
     }
 }
 
@@ -103,7 +103,7 @@ impl State {
             let mut connections: Vec<Postgres> = Vec::new();
             for url in config.db_urls.iter() {
                 let connection =
-                    Postgres::try_new(&format!("{}/{}", url, db_name), &config.db_max_connections)
+                    Postgres::try_new(&format!("{url}/{db_name}"), &config.db_max_connections)
                         .await?;
                 connections.push(connection);
             }
