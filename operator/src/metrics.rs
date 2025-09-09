@@ -173,7 +173,7 @@ pub async fn run_metrics_collector(state: Arc<State>) {
             last_execution = end;
 
             let query = format!(
-                "sum by (usename) (avg_over_time(pg_stat_activity_count{{usename=~\"dmtr_.*\", namespace=\"{current_namespace}\"}}[{interval}s] @ {})) > 0",
+                "sum by (usename) (avg_over_time(pg_stat_activity_count{{usename=~\".*dbsync.*\", namespace=\"{current_namespace}\"}}[{interval}s] @ {})) > 0",
                 end.timestamp_millis() / 1000
             );
 
