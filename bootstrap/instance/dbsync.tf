@@ -75,56 +75,6 @@ resource "kubernetes_deployment_v1" "db_sync" {
           }
         }
 
-        dynamic "init_container" {
-          for_each = var.network == "vector-testnet" ? toset([1]) : toset([])
-
-          content {
-            name = "init-pgpass"
-
-            image = "busybox"
-
-            command = [
-              "sh", "-c", <<-EOT
-              echo "$(echo $POSTGRES_HOST):$(echo $POSTGRES_PORT):$(echo $POSTGRES_DB):$(echo $POSTGRES_USER):$(echo $POSTGRES_PASSWORD)" > /etc/pgpass/pgpass
-              chmod 600 /etc/pgpass/pgpass
-              EOT
-            ]
-            env {
-              name  = "POSTGRES_USER"
-              value = "postgres"
-            }
-
-            env {
-              name = "POSTGRES_PASSWORD"
-              value_from {
-                secret_key_ref {
-                  key  = "password"
-                  name = var.postgres_secret_name
-                }
-              }
-            }
-
-            env {
-              name  = "POSTGRES_DB"
-              value = var.postgres_database
-            }
-
-            env {
-              name  = "POSTGRES_HOST"
-              value = var.postgres_instance_name
-            }
-
-            env {
-              name  = "POSTGRES_PORT"
-              value = "5432"
-            }
-            volume_mount {
-              name       = "pgpass-volume"
-              mount_path = "/etc/pgpass"
-            }
-          }
-        }
-
         container {
           args = [
             "-d",
@@ -153,8 +103,8 @@ resource "kubernetes_deployment_v1" "db_sync" {
           }
 
           args = var.empty_args ? [] : [
-            "--config /etc/dbsync/db-sync-config.json",
-            "--socket-path /node-ipc/node.socket",
+            "--config", "/etc/dbsync/db-sync-config.json",
+            "--socket-path", "/node-ipc/node.socket",
           ]
 
           env {
@@ -197,14 +147,6 @@ resource "kubernetes_deployment_v1" "db_sync" {
             value = var.network_env_var ? var.network : ""
           }
 
-          dynamic "env" {
-            for_each = var.network == "vector-testnet" ? toset([1]) : toset([])
-            content {
-              name  = "PGPASSFILE"
-              value = "/etc/pgpass/pgpass"
-            }
-          }
-
           dynamic "volume_mount" {
             for_each = var.custom_config ? toset([1]) : toset([])
             content {
@@ -221,14 +163,6 @@ resource "kubernetes_deployment_v1" "db_sync" {
           volume_mount {
             mount_path = "/var/lib/cexplorer"
             name       = "state"
-          }
-
-          dynamic "volume_mount" {
-            for_each = var.network == "vector-testnet" ? toset([1]) : toset([])
-            content {
-              name       = "pgpass-volume"
-              mount_path = "/etc/pgpass"
-            }
           }
 
           port {
