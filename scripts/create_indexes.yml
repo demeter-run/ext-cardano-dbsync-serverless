@@ -228,6 +228,7 @@ metadata:
 spec:
   template:
     spec:
+      restartPolicy: "OnFailure"
       containers:
       - command:
         - psql
