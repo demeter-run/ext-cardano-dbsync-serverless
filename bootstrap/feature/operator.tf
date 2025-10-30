@@ -72,7 +72,7 @@ resource "kubernetes_deployment_v1" "operator" {
 
           env {
             name  = "DB_NAMES"
-            value = "mainnet=dbsync-mainnet,preprod=dbsync-preprod,preview=dbsync-preview,vector-testnet=dbsync-vector-testnet,prime-testnet=dbsync-prime-testnet"
+            value = "vector-testnet=dbsync-vector-testnet,prime-testnet=dbsync-prime-testnet,cardano-mainnet=dbsync-mainnet,cardano-preprod=dbsync-preprod,cardano-preview=dbsync-preview"
           }
 
           env {

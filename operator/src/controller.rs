@@ -18,7 +18,7 @@ use sha3::{Digest, Sha3_256};
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, instrument};
 
-use crate::{postgres::Postgres, Error, State};
+use crate::{postgres::Postgres, utils::handle_legacy_networks, Error, State};
 
 pub static DB_SYNC_PORT_FINALIZER: &str = "dbsyncports.demeter.run";
 
@@ -138,7 +138,7 @@ async fn reconcile(crd: Arc<DbSyncPort>, state: Arc<State>) -> Result<Action, Er
     let ns = crd.namespace().unwrap();
     let crds: Api<DbSyncPort> = Api::namespaced(state.kube_client.clone(), &ns);
 
-    let pg_connections = state.get_pg_by_network(&crd.spec.network)?;
+    let pg_connections = state.get_pg_by_network(&handle_legacy_networks(&crd.spec.network))?;
 
     finalizer(&crds, DB_SYNC_PORT_FINALIZER, crd, |event| async {
         match event {

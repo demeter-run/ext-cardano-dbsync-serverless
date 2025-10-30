@@ -139,6 +139,7 @@ impl State {
 pub mod controller;
 pub mod metrics;
 pub mod postgres;
+pub mod utils;
 
 pub use controller::*;
 pub use metrics::*;
