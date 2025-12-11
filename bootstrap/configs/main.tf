@@ -29,15 +29,15 @@ resource "kubernetes_config_map" "node-config" {
   }
 
   data = startswith(var.network, "vector") ? {
-    "config.json"         = "${file("${path.module}/${var.network}/config.json")}"
-    "db-sync-config.json" = "${file("${path.module}/${var.network}/db-sync-config.json")}"
-    } : {
     "config.yaml"         = "${file("${path.module}/${var.network}/config.yaml")}"
     "db-sync-config.json" = "${file("${path.module}/${var.network}/db-sync-config.json")}"
     "byron.json"          = "${file("${path.module}/${var.network}/byron.json")}"
     "alonzo.json"         = "${file("${path.module}/${var.network}/alonzo.json")}"
     "shelley.json"        = "${file("${path.module}/${var.network}/shelley.json")}"
     "conway.json"         = "${file("${path.module}/${var.network}/conway.json")}"
+    } : {
+    "config.json"         = "${file("${path.module}/${var.network}/config.json")}"
+    "db-sync-config.json" = "${file("${path.module}/${var.network}/db-sync-config.json")}"
   }
 }
 
