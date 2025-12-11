@@ -28,7 +28,7 @@ resource "kubernetes_config_map" "node-config" {
     name      = local.cm_name
   }
 
-  data = var.network != "vector-testnet" ? {
+  data = startswith(var.network, "vector") ? {
     "config.json"         = "${file("${path.module}/${var.network}/config.json")}"
     "db-sync-config.json" = "${file("${path.module}/${var.network}/db-sync-config.json")}"
     } : {
