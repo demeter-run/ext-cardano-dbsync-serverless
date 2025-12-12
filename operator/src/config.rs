@@ -14,7 +14,6 @@ pub struct Config {
     pub db_urls: Vec<String>,
     pub db_names: HashMap<String, String>,
     pub db_max_connections: usize,
-    pub dcu_per_second: HashMap<String, f64>,
 
     pub metrics_delay: Duration,
     pub prometheus_url: String,
@@ -45,19 +44,6 @@ impl Config {
             })
             .unwrap_or(2);
 
-        let dcu_per_second = env::var("DCU_PER_SECOND")
-            .expect("DCU_PER_SECOND must be set")
-            .split(',')
-            .map(|pair| {
-                let parts: Vec<&str> = pair.split('=').collect();
-                let dcu = parts[1]
-                    .parse::<f64>()
-                    .expect("DCU_PER_SECOND must be NETWORK=NUMBER");
-
-                (parts[0].into(), dcu)
-            })
-            .collect();
-
         let metrics_delay = Duration::from_secs(
             env::var("METRICS_DELAY")
                 .expect("METRICS_DELAY must be set")
@@ -76,7 +62,6 @@ impl Config {
             db_urls,
             db_names,
             db_max_connections,
-            dcu_per_second,
             metrics_delay,
             prometheus_url,
             statement_timeout,
@@ -95,7 +80,6 @@ mod tests {
             "DB_NAMES",
             "preview=dbsync-preview,preprod=dbsync-preprod,mainnet=dbsync-mainnet",
         );
-        env::set_var("DCU_PER_SECOND", "preview=5,preprod=5,mainnet=5");
         env::set_var("METRICS_DELAY", "100");
         env::set_var("PROMETHEUS_URL", "localhost");
         env::set_var("STATEMENT_TIMEOUT", "100");
@@ -108,14 +92,6 @@ mod tests {
                 ("preview".to_owned(), "dbsync-preview".to_owned()),
                 ("preprod".to_owned(), "dbsync-preprod".to_owned()),
                 ("mainnet".to_owned(), "dbsync-mainnet".to_owned())
-            ])
-        );
-        assert_eq!(
-            config.dcu_per_second,
-            HashMap::from([
-                ("preview".to_owned(), 5.0),
-                ("preprod".to_owned(), 5.0),
-                ("mainnet".to_owned(), 5.0)
             ])
         );
         assert_eq!(config.statement_timeout, 100);

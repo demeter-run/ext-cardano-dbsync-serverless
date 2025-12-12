@@ -167,8 +167,6 @@ spec:
               value: "postgres://user:password@app.prj-ci-test.svc.cluster.local:5432"
             - name: DB_NAMES
               value: "preview=postgres"
-            - name: DCU_PER_SECOND
-              value: "preview=5"
             - name: METRICS_DELAY
               value: "30"
             - name: PROMETHEUS_URL

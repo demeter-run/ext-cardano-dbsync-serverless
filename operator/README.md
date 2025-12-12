@@ -22,7 +22,6 @@ This project is a Kubernetes custom controller to create users on dbsync's Postg
 | DB_URLS            | postgres://postgres:postgres@127.0.0.1:5432,postgres://postgres:postgres@127.0.0.1:5433 |
 | DB_NAMES           | preview=dbsync-preview,preprod=dbsync-preprod,mainnet=dbsync-mainnet                    |
 | DB_MAX_CONNECTIONS | 2                                                                                       |
-| DCU_PER_SECOND     | preview=5,preprod=5,mainnet=5                                                           |
 | METRICS_DELAY      | 30                                                                                      |
 | STATEMENT_TIMEOUT  | 12000                                                                                   |
 
