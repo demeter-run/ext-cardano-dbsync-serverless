@@ -12,7 +12,6 @@ module "dbsync_feature" {
   namespace            = var.namespace
   operator_image_tag   = var.operator_image_tag
   metrics_delay        = var.metrics_delay
-  dcu_per_second       = var.dcu_per_second
   postgres_password    = var.postgres_password
   postgres_secret_name = var.postgres_secret_name
   pgbouncer_server_crt = var.pgbouncer_server_crt

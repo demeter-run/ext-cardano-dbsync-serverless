@@ -13,7 +13,6 @@ pub struct Metrics {
     pub users_dropped: IntCounterVec,
     pub reconcile_failures: IntCounterVec,
     pub metrics_failures: IntCounterVec,
-    pub dcu: IntCounterVec,
     pub usage: IntCounterVec,
 }
 
@@ -55,12 +54,6 @@ impl Default for Metrics {
         )
         .unwrap();
 
-        let dcu = IntCounterVec::new(
-            opts!("dmtr_consumed_dcus", "quantity of dcu consumed",),
-            &["project", "service", "service_type", "tenancy"],
-        )
-        .unwrap();
-
         let usage = IntCounterVec::new(
             opts!("usage", "Feature usage",),
             &["feature", "project", "resource_name", "tier"],
@@ -72,7 +65,6 @@ impl Default for Metrics {
             users_dropped,
             reconcile_failures,
             metrics_failures,
-            dcu,
             usage,
         }
     }
@@ -83,7 +75,6 @@ impl Metrics {
         registry.register(Box::new(self.reconcile_failures.clone()))?;
         registry.register(Box::new(self.users_created.clone()))?;
         registry.register(Box::new(self.users_dropped.clone()))?;
-        registry.register(Box::new(self.dcu.clone()))?;
         registry.register(Box::new(self.usage.clone()))?;
         Ok(self)
     }
@@ -112,18 +103,6 @@ impl Metrics {
         self.users_dropped
             .with_label_values(&[&project, network])
             .inc();
-    }
-
-    pub fn count_dcu_consumed(&self, project: &str, network: &str, dcu: f64) {
-        let service = format!("{}-{}", DbSyncPort::kind(&()), network);
-        let service_type = format!("{}.{}", DbSyncPort::plural(&()), DbSyncPort::group(&()));
-        let tenancy = "proxy";
-
-        let dcu: u64 = dcu.ceil() as u64;
-
-        self.dcu
-            .with_label_values(&[project, &service, &service_type, tenancy])
-            .inc_by(dcu);
     }
 
     pub fn count_usage(&self, project: &str, resource_name: &str, tier: &str, value: f64) {
@@ -203,27 +182,10 @@ pub async fn run_metrics_collector(state: Arc<State>) {
                     }
                 };
 
-                let dcu_per_second = match config.dcu_per_second.get(&crd.spec.network) {
-                    Some(dcu_per_second) => dcu_per_second,
-                    None => {
-                        let error = Error::ConfigError(format!(
-                            "dcu_per_second not configured to {} network",
-                            &crd.spec.network
-                        ));
-                        error!(error = error.to_string());
-                        state.metrics.metrics_failure(&error);
-                        continue;
-                    }
-                };
                 let total_exec_time = result.value * (interval as f64);
-
-                let dcu = total_exec_time * dcu_per_second;
 
                 let project = get_project_id(&crd.namespace().unwrap());
 
-                state
-                    .metrics
-                    .count_dcu_consumed(&project, &crd.spec.network, dcu);
                 state.metrics.count_usage(
                     &project,
                     &crd.name_any(),
