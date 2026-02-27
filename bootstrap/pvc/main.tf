@@ -14,6 +14,14 @@ variable "storage_size" {
   description = "the size of the volume"
 }
 
+variable "storage_class" {
+  default = "nvme"
+}
+
+variable "access_mode" {
+  default = "ReadWriteMany"
+}
+
 resource "kubernetes_persistent_volume_claim" "shared_disk" {
   wait_until_bound = false
 
@@ -23,13 +31,13 @@ resource "kubernetes_persistent_volume_claim" "shared_disk" {
   }
 
   spec {
-    access_modes = ["ReadWriteMany"]
+    access_modes = [var.access_mode]
     resources {
       requests = {
         storage = var.storage_size
       }
     }
-    storage_class_name = "nvme"
+    storage_class_name = var.storage_class
     volume_name        = var.volume_name
   }
 }

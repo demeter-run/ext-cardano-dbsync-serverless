@@ -34,11 +34,13 @@ locals {
   ]
 }
 module "dbsync_pvc" {
-  source       = "../pvc"
-  namespace    = var.namespace
-  volume_name  = var.volume_name
-  storage_size = var.storage_size
-  name         = local.db_volume_claim
+  source        = "../pvc"
+  namespace     = var.namespace
+  volume_name   = var.volume_name
+  storage_size  = var.storage_size
+  name          = local.db_volume_claim
+  storage_class = var.storage_class
+  access_mode   = var.access_mode
 }
 
 module "dbsync_postgres" {
@@ -51,8 +53,9 @@ module "dbsync_postgres" {
   topology_zone         = var.topology_zone
   postgres_image_tag    = var.postgres_image_tag
   postgres_secret_name  = var.postgres_secret_name
-  postgres_resources    = var.postgres_resources
+  postgres_size         = var.postgres_size
   is_blockfrost_backend = var.is_blockfrost_backend
+  tolerations           = var.postgres_tolerations
 }
 
 module "dbsync_pgbouncer" {
@@ -67,6 +70,7 @@ module "dbsync_pgbouncer" {
   instance_name                 = "postgres-dbsync-v3-${var.salt}"
   postgres_instance_name        = local.postgres_host
   pgbouncer_reloader_image_tag  = var.pgbouncer_reloader_image_tag
+  tolerations                   = var.pgbouncer_tolerations
 }
 
 module "dbsync_instances" {

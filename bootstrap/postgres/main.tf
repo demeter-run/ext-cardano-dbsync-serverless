@@ -1,3 +1,38 @@
+locals {
+  postgres_resources = {
+    "small" = {
+      "limits" = {
+        memory = "4Gi"
+        cpu    = "2"
+      }
+      "requests" = {
+        memory = "2Gi"
+        cpu    = "100m"
+      }
+    }
+    "medium" = {
+      "limits" = {
+        memory = "16Gi"
+        cpu    = "4000m"
+      }
+      "requests" = {
+        memory = "16Gi"
+        cpu    = "500m"
+      }
+    }
+    "large" = {
+      "limits" = {
+        memory = "60Gi"
+        cpu    = "8"
+      }
+      "requests" = {
+        memory = "60Gi"
+        cpu    = "2"
+      }
+    }
+  }
+}
+
 variable "db_volume_claim" {
   type = string
 }
@@ -26,21 +61,11 @@ variable "postgres_config_name" {
   default = "postgres-config"
 }
 
-variable "postgres_resources" {
-  type = object({
-    requests = map(string)
-    limits   = map(string)
-  })
-
-  default = {
-    "limits" = {
-      memory = "2Gi"
-      cpu    = "4000m"
-    }
-    "requests" = {
-      memory = "2Gi"
-      cpu    = "100m"
-    }
+variable "postgres_size" {
+  type = string
+  validation {
+    condition     = contains(["small", "medium", "large"], var.postgres_size)
+    error_message = "postgres_size must be one of \"small\", \"medium\", or \"large\"."
   }
 }
 
@@ -74,3 +99,30 @@ variable "postgres_settings" {
   }
 }
 
+variable "tolerations" {
+  type = list(object({
+    effect   = string
+    key      = string
+    operator = string
+    value    = optional(string)
+  }))
+  default = [
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/compute-profile"
+      operator = "Equal"
+      value    = "disk-intensive"
+    },
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/compute-arch"
+      operator = "Equal"
+      value    = "x86"
+    },
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/availability-sla"
+      operator = "Equal"
+      value    = "consistent"
+  }]
+}

@@ -26,6 +26,14 @@ variable "db_volume_claim" {
   default = null
 }
 
+variable "storage_class" {
+  default = "nvme"
+}
+
+variable "access_mode" {
+  default = "ReadWriteMany"
+}
+
 // Postgres
 variable "topology_zone" {
   type = string
@@ -39,23 +47,38 @@ variable "postgres_image_tag" {
   type = string
 }
 
-variable "postgres_resources" {
-  type = object({
-    requests = map(string)
-    limits   = map(string)
-  })
-
-  default = {
-    "limits" = {
-      memory = "2Gi"
-      cpu    = "4000m"
-    }
-    "requests" = {
-      memory = "2Gi"
-      cpu    = "100m"
-    }
-  }
+variable "postgres_size" {
+  type = string
 }
+
+variable "postgres_tolerations" {
+  type = list(object({
+    effect   = string
+    key      = string
+    operator = string
+    value    = optional(string)
+  }))
+  default = [
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/compute-profile"
+      operator = "Equal"
+      value    = "disk-intensive"
+    },
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/compute-arch"
+      operator = "Equal"
+      value    = "x86"
+    },
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/availability-sla"
+      operator = "Equal"
+      value    = "consistent"
+  }]
+}
+
 
 variable "postgres_secret_name" {
   type = string
@@ -82,6 +105,35 @@ variable "pgbouncer_auth_user_password" {
 variable "pgbouncer_reloader_image_tag" {
   type = string
 }
+
+variable "pgbouncer_tolerations" {
+  type = list(object({
+    effect   = string
+    key      = string
+    operator = string
+    value    = optional(string)
+  }))
+  default = [
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/compute-profile"
+      operator = "Exists"
+    },
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/compute-arch"
+      operator = "Equal"
+      value    = "x86"
+    },
+    {
+      effect   = "NoSchedule"
+      key      = "demeter.run/availability-sla"
+      operator = "Equal"
+      value    = "best-effort"
+    }
+  ]
+}
+
 
 // Instance
 variable "instances" {
@@ -115,4 +167,3 @@ variable "instances" {
     })))
   }))
 }
-

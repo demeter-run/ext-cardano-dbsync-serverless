@@ -5,7 +5,6 @@ resource "kubernetes_config_map" "postgres_config" {
   }
 
   data = {
-    "postgresql.conf" = file("${path.module}/postgresql.conf")
+    "postgresql.conf" = file("${path.module}/${var.postgres_size}.conf")
   }
 }
-

@@ -71,12 +71,12 @@ resource "kubernetes_stateful_set_v1" "postgres" {
 
           resources {
             limits = {
-              cpu    = var.postgres_resources.limits.cpu
-              memory = var.postgres_resources.limits.memory
+              cpu    = local.postgres_resources[var.postgres_size].limits.cpu
+              memory = local.postgres_resources[var.postgres_size].limits.memory
             }
             requests = {
-              cpu    = var.postgres_resources.requests.cpu
-              memory = var.postgres_resources.requests.memory
+              cpu    = local.postgres_resources[var.postgres_size].requests.cpu
+              memory = local.postgres_resources[var.postgres_size].requests.memory
             }
           }
 
@@ -149,25 +149,15 @@ resource "kubernetes_stateful_set_v1" "postgres" {
           }
         }
 
-        toleration {
-          effect   = "NoSchedule"
-          key      = "demeter.run/compute-profile"
-          operator = "Equal"
-          value    = "disk-intensive"
-        }
+        dynamic "toleration" {
+          for_each = var.tolerations
 
-        toleration {
-          effect   = "NoSchedule"
-          key      = "demeter.run/compute-arch"
-          operator = "Equal"
-          value    = "x86"
-        }
-
-        toleration {
-          effect   = "NoSchedule"
-          key      = "demeter.run/availability-sla"
-          operator = "Equal"
-          value    = "consistent"
+          content {
+            effect   = toleration.value.effect
+            key      = toleration.value.key
+            operator = toleration.value.operator
+            value    = toleration.value.value
+          }
         }
       }
     }
@@ -194,4 +184,3 @@ resource "kubernetes_service_v1" "postgres" {
     }
   }
 }
-
