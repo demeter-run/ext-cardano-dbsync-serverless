@@ -6,7 +6,7 @@ ConwayGenesisFile: "/etc/dbsync/conway.json"
 ByronGenesisHash: 4f0f35eb49562354c5b686e381ff6159d651616e6b83efee2f6d8bcc60d0cded
 ShelleyGenesisHash: 2dc036ec7f13994762414806fd83efe6e04086b8b978d0f8093cfa33e5668eea
 AlonzoGenesisHash: 501e2702bddac606c398acf9733af26857de5c0424f6e421ea524cf7a0c30f99
-ConwayGenesisHash: 72a8e84c684b44e6b7530b6861582c5fa2db112f5b56e38505f987f34f8ffa66
+ConwayGenesisHash: 433604c1034a9af29acf19b37882945ba911374b9a5a0c41952f8c6b86f93993
 PBftSignatureThreshold: 0.6
 MaxConcurrencyBulkSync: 1
 MaxConcurrencyDeadline: 2
@@ -21,20 +21,20 @@ TurnOnLogMetrics: true
 minSeverity: Debug
 TracingVerbosity: NormalVerbosity
 setupBackends:
-- KatipBK
+  - KatipBK
 defaultBackends:
-- KatipBK
+  - KatipBK
 hasEKG: 14788
 hasPrometheus:
-- 0.0.0.0
-- 14789
+  - 0.0.0.0
+  - 14789
 setupScribes:
-- scKind: StdoutSK
-  scName: stdout
-  scFormat: ScText
+  - scKind: StdoutSK
+    scName: stdout
+    scFormat: ScText
 defaultScribes:
-- - StdoutSK
-  - stdout
+  - - StdoutSK
+    - stdout
 rotation:
   rpLogLimitBytes: 5000000
   rpKeepFilesNum: 3
@@ -78,17 +78,16 @@ TraceTxSubmissionProtocol: true
 options:
   mapBackends:
     cardano.node.metrics:
-    - EKGViewBK
+      - EKGViewBK
     cardano.node.resources:
-    - EKGViewBK
+      - EKGViewBK
     cardano.node.metrics.connectedPeers:
-    - EKGViewBK
+      - EKGViewBK
     cardano.node.ChainDB.metrics:
-    - EKGViewBK
+      - EKGViewBK
     cardano.node.Forge.metrics:
-    - EKGViewBK
+      - EKGViewBK
   mapSeverity:
     cardano.node.ChainDB: Notice
     cardano.node.DnsSubscription: Debug
 EnableP2P: false
-
